@@ -1,0 +1,16 @@
+[package]
+name = "HashTest"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+rand = "0.8.5"
+sha3 = "0.10.8"
+typenum = "1.17.0"
+criterion = { version = "0.5.1", features = ["plotters"] }
+
+
+[[bench]]
+name ="bluebench"
+harness = false
