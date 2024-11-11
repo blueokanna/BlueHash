@@ -62,7 +62,7 @@ This ensures that each round has a unique constant, enhancing the security and r
 
 The `update` and `permute` functions implement the core transformation logic of the algorithm. Each round involves updating the state using the current round constants and applying various bitwise operations to achieve diffusion and confusion.
 
-The update formula for the state \( \text{state}[i] \) at round \( r \) is as follows:
+The update formula for the state `state[i]` at round `r` is as follows:
 
 $$
 \text{state}[i] = \left( \text{state}[i] \ll 29 \right) + \text{constant} + \text{local\ vars}[2] \oplus \left( \text{local\ vars}[0] \land \text{local\ vars}[1] \right) \oplus \left( \text{local\ vars}[3] \gg 17 \right) \oplus \left( \text{constant} \ll 23 \right)
@@ -118,23 +118,23 @@ By adhering to these principles, **BlueHash** is designed to be a robust cryptog
 
 ## BenchMark for BlueHash and SHA3
 
-### **BlueHash-128**
+### **BlueHash-128 (500 Samples)**
 ![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
 
-### **BlueHash-256**
+### **BlueHash-256 (500 Samples)**
 ![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
 
-### **BlueHash-512**
+### **BlueHash-512 (500 Samples)**
 ![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)
 
-### **BlueHash Differential Attack**
+### **BlueHash Differential Attack (1000 Samples and 10 Million Trial Attack)**
 ![Attack](https://github.com/blueokanna/BlueHash/blob/main/compare_result/bluehash_hardtest.png)
 
 
-### **SHA3-256**
+### **SHA3-256 (500 Samples)**
 ![SHA3-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-256.png)
 
-### **SHA3-512**
+### **SHA3-512 (500 Samples)**
 ![SHA3-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-512.png)
 
 ## What is **BlueHash** Algorithm Pros and Cons?
