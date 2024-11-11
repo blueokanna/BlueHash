@@ -15,7 +15,7 @@
 - **状态大小**：25 个 64 位字（即 \( STATE\_SIZE = 25 \)）。
 - **摘要长度**：根据摘要大小，可能是 128、256 或 512 位。
 
-每个摘要大小的回合数和输出长度如下：
+每个摘要大小的轮次数和输出长度如下：
 
 $$
 R(d) = 
@@ -47,7 +47,7 @@ $$
 
 其中：
 - \( p \) 是一个固定的质数常量。
-- \( r \) 是回合号。
+- \( r \) 是轮次。
 - `round_factor` 是回合号的一个函数。
 - `extra_prime` 是一个较大的质数常量。
 - `noise` 是由输入数据和回合号生成的噪声。
@@ -59,7 +59,7 @@ $$
 
 `update` 和 `permute` 函数实现了算法的核心转换逻辑。每个回合都涉及使用当前回合常量更新状态，并应用各种按位操作来实现扩散和混淆。
 
-状态 \( \text{state}[i] \) 在回合 \( r \) 时的更新公式如下：
+状态 `state[i]` 在轮次 `r` 时的更新公式如下：
 
 $$
 \text{state}[i] = \left( \text{state}[i] \ll 29 \right) + \text{constant} + \text{local\ vars}[2] \oplus \left( \text{local\ vars}[0] \land \text{local\ vars}[1] \right) \oplus \left( \text{local\ vars}[3] \gg 17 \right) \oplus \left( \text{constant} \ll 23 \right)
@@ -112,23 +112,23 @@ $$
 
 ## BlueHash 和 SHA3 的性能基本测试
 
-### **BlueHash-128**
+### **BlueHash-128 (500 个样本点)**
 ![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
 
-### **BlueHash-256**
+### **BlueHash-256 (500 个样本点)**
 ![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
 
-### **BlueHash-512**
+### **BlueHash-512 (500 个样本点)**
 ![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)
 
-### **BlueHash Differential Attack**
+### **BlueHash Differential Attack (1000 个样本点，1000 万次尝试攻击)**
 ![Attack](https://github.com/blueokanna/BlueHash/blob/main/compare_result/bluehash_hardtest.png)
 
 
-### **SHA3-256**
+### **SHA3-256 (500 个样本点)**
 ![SHA3-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-256.png)
 
-### **SHA3-512**
+### **SHA3-512 (500 个样本点)**
 ![SHA3-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-512.png)
 
 
