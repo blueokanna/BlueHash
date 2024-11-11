@@ -106,9 +106,72 @@ The security of the **BlueHash** algorithm is based on the following principles:
 
 By adhering to these principles, **BlueHash** is designed to be a robust cryptographic hash function, resistant to attacks such as collision finding and pre-image attacks.
 
-# Final
+# Compare to SHA-3 (NIST)
+| **500 Sample in 10s** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
+|-----------------------|--------------|--------------|------------------|------------------|------------------|
+| Slope                 | 334.04 ns	   | 334.41 ns	   | 14.573 µs        | 16.760 µs        | 20.783 µs	       |
+| R^2                   | 0.7966978	   | 0.7135882    | 0.6874281        | 0.8318049        | 0.7470279        |
+| Mean                  | 334.45 ns	   | 336.50 ns	   | 14.538 µs        | 16.751 µs	       | 20.813 µs	       |
+| std. Dev              | 19.989 ns	   | 14.845 ns	   | 374.54 ns        | 376.22 ns	       | 741.25 ns	       |
+| Median                | 333.74 ns	   | 334.67 ns	   | 14.487 µs        | 16.761 µs	       | 20.675 µs	       |
+| MAD                   | 3.5463 ns	   | 2.8191 ns	   | 172.89 ns        | 186.59 ns	       | 263.87 ns	       |
 
-The **BlueHash** algorithm is a custom cryptographic hash function that leverages multiple rounds of complex transformations to generate secure hashes of varying lengths. It utilizes a fixed state size, round-based transformations, and constant generation to ensure the uniqueness and security of the final output. 
+## BenchMark for BlueHash and SHA3
+
+### **BlueHash-128**
+![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
+
+### **BlueHash-256**
+![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
+
+### **BlueHash-512**
+![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)
+
+### **BlueHash Differential Attack**
+![Attack](https://github.com/blueokanna/BlueHash/blob/main/compare_result/bluehash_hardtest.png)
+
+
+### **SHA3-256**
+![SHA3-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-256.png)
+
+### **SHA3-512**
+![SHA3-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-512.png)
+
+## What is **BlueHash** Algorithm Pros and Cons?
+
+### The **BlueHash** algorithm has the following advantages over **SHA3-256**:
+
+1. **Resistance to Quantum Attacks**: 
+   Provides greater resistance to quantum attacks through the mechanism of LWE noise and constant generation.
+
+2. **Higher Randomness and Complexity**: 
+   Utilizes dynamic generation of constants, increasing the unpredictability of the hash algorithm. This adds complexity and makes the algorithm more resistant to differential attacks.
+
+3. **Stronger State Update and Replacement**: 
+   Offers improved resistance to both conventional and quantum attacks through more diverse bit operations and hybrid operations.
+
+4. **Enhanced Noise Generation Mechanism**: 
+   The addition of LWE noise not only increases security but also enhances defense, particularly against quantum computing.
+
+5. **Flexibility**: 
+   Enables flexible adjustment of rounds and other parameters according to different hash lengths, optimizing performance while ensuring security.
+
+<br>
+
+### Potential Limitations of BlueHash
+
+1. **Higher Performance Overhead**: 
+   Multiple rounds of complex operations and noise generation increase the computational overhead and may impact efficiency in big data processing.
+
+2. **Higher Memory Consumption**: 
+   More local variables and state storage requirements may lead to performance bottlenecks in low-memory environments.
+
+3. **Lack of Standardization and Auditing**: 
+   Compared to SHA3-256, BlueHash lacks extensive security auditing and community validation, which may affect its trustworthiness in certain applications.
+
+
+----
+> The **BlueHash** algorithm is a custom cryptographic hash function that leverages multiple rounds of complex transformations to generate secure hashes of varying lengths. It utilizes a fixed state size, round-based transformations, and constant generation to ensure the uniqueness and security of the final output. 
 
 ----
 
