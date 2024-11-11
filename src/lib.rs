@@ -58,7 +58,7 @@ fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -> u6
 
 
 #[derive(Debug)]
-struct BlueHash {
+pub struct BlueHash {
     state: [u64; STATE_SIZE],
     round_count: usize,
     digest_size: DigestSize,
@@ -66,7 +66,7 @@ struct BlueHash {
 
 impl BlueHash {
     // Create a new BlueHash instance with the given digest size.
-    fn new(digest_size: DigestSize) -> Self {
+    pub fn new(digest_size: DigestSize) -> Self {
         Self {
             state: [0u64; STATE_SIZE], // Initialize state to zero
             round_count: digest_size.round_count(),
@@ -75,7 +75,7 @@ impl BlueHash {
     }
 
     // Update the hash state with new data in chunks of 8 bytes.
-    fn update(&mut self, data: &[u8]) {
+    pub fn update(&mut self, data: &[u8]) {
         for chunk in data.chunks(8) {
             // Convert chunk of data to a u64 value.
             let block = Self::to_u64(chunk);
@@ -85,7 +85,7 @@ impl BlueHash {
     }
 
     // Permutation function that applies transformations to the internal state.
-    fn permute(&mut self, input_data: &[u8]) {
+    pub fn permute(&mut self, input_data: &[u8]) {
         let mut local_vars: [u64; 5];
         for round in 0..self.round_count {
             // Generate a constant for the current round.
@@ -114,7 +114,7 @@ impl BlueHash {
     }
 
     // Finalize the hash calculation and return the hash output as a byte vector.
-    fn finalize(&self) -> Vec<u8> {
+    pub fn finalize(&self) -> Vec<u8> {
         let digest_size = self.digest_size.digest_length();
         let mut result = vec![0u8; digest_size]; // Initialize result buffer
         let mut output_idx = 0;
@@ -135,7 +135,7 @@ impl BlueHash {
     }
 
     // Convert a byte slice (chunk) into a u64 integer.
-    fn to_u64(chunk: &[u8]) -> u64 {
+    pub fn to_u64(chunk: &[u8]) -> u64 {
         chunk.iter().fold(0, |acc, &b| (acc << 8) | b as u64)
     }
 }
