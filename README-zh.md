@@ -1,4 +1,4 @@
-# BlueHash 算法文档 - (English Version)[https://github.com/blueokanna/BlueHash/blob/main/README.md]
+# BlueHash 算法文档 - [English Version](https://github.com/blueokanna/BlueHash/blob/main/README.md)
 
 ## 概述
 
@@ -100,6 +100,77 @@ $$
 
 遵循这些原则，**BlueHash** 被设计为一种强大的加密哈希函数，能够抵抗如碰撞查找和预映像攻击等攻击。
 
-## 总结
+# Compare to SHA-3 (NIST)
+| **500 Sample in 10s** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
+|-----------------------|--------------|--------------|------------------|------------------|------------------|
+| Slope                 | 334.04 ns	   | 334.41 ns	   | 14.573 µs        | 16.760 µs        | 20.783 µs	       |
+| R^2                   | 0.7966978	   | 0.7135882    | 0.6874281        | 0.8318049        | 0.7470279        |
+| Mean                  | 334.45 ns	   | 336.50 ns	   | 14.538 µs        | 16.751 µs	       | 20.813 µs	       |
+| std. Dev              | 19.989 ns	   | 14.845 ns	   | 374.54 ns        | 376.22 ns	       | 741.25 ns	       |
+| Median                | 333.74 ns	   | 334.67 ns	   | 14.487 µs        | 16.761 µs	       | 20.675 µs	       |
+| MAD                   | 3.5463 ns	   | 2.8191 ns	   | 172.89 ns        | 186.59 ns	       | 263.87 ns	       |
 
-**BlueHash** 算法是一种自定义的加密哈希函数，利用多个回合的复杂转换生成不同长度的安全哈希。它使用固定的状态大小、基于回合的转换和常量生成来确保最终输出的独特性和安全性。
+## BlueHash 和 SHA3 的性能基本测试
+
+### **BlueHash-128**
+![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
+
+### **BlueHash-256**
+![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
+
+### **BlueHash-512**
+![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)
+
+### **BlueHash Differential Attack**
+![Attack](https://github.com/blueokanna/BlueHash/blob/main/compare_result/bluehash_hardtest.png)
+
+
+### **SHA3-256**
+![SHA3-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-256.png)
+
+### **SHA3-512**
+![SHA3-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-512.png)
+
+
+## 什么是 **BlueHash** 算法的优缺点？
+
+### 与**SHA3-256**相比，**BlueHash**算法有以下优点：
+
+1. **抗量子攻击**： 
+通过 LWE 噪声和恒定生成机制，可以更好地抵御量子攻击。
+
+2. **更高的随机性和复杂性**： 
+利用动态生成常数，增加哈希算法的不可预测性。这增加了复杂性，并使算法更能抵御差分攻击。
+
+3. **更强的状态更新和替换**： 
+通过更多样化的比特运算和混合运算，提高了对传统攻击和量子攻击的抵御能力。
+
+4. **增强的噪声生成机制**： 
+添加 LWE 噪声不仅能提高安全性，还能增强防御能力，尤其是针对量子计算的防御能力。
+
+5. **灵活性**： 
+可根据不同的哈希长度灵活调整轮数和其他参数，在确保安全的同时优化性能。
+
+<br>
+
+### BlueHash 的潜在局限性:
+
+1. **较高的性能开销**： 
+多轮复杂运算和 LWE 噪声生成会增加计算开销，可能会影响大数据处理的效率。
+
+2. **更高的内存消耗**： 
+更多的本地变量和状态存储要求可能会导致低内存环境下的性能瓶颈。
+
+3. **缺乏标准化和审计**： 
+与 SHA3-256 相比，**BlueHash** 缺乏广泛的安全审计。
+
+----
+> **BlueHash** 算法是一种自定义的加密哈希函数，利用多个回合的复杂转换生成不同长度的安全哈希。它使用固定的状态大小、基于回合的转换和常量生成来确保最终输出的独特性和安全性。
+----
+
+## 贡献
+| ![Tether](https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/16/tether.png "Tether (USDT)") **USDT** : Arbitrum One Network: **0x4051d34Af2025A33aFD5EacCA7A90046f7a64Bed** | ![USD Coin](https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/16/usd-coin.png "USD Coin (USDC)") **USDC**: Arbitrum One Network: **0x4051d34Af2025A33aFD5EacCA7A90046f7a64Bed** | ![Dash Coin](https://raw.githubusercontent.com/ErikThiart/cryptocurrency-icons/master/16/dash.png "Dash Coin (Dash)") **Dash**: Dash Network: **XuJwtHWdsYzfLawymR3B3nDdS2W8dHnxyR** |
+|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+
+| ![0x4051d34Af2025A33aFD5EacCA7A90046f7a64Bed](https://github.com/user-attachments/assets/608c5e0d-edfc-4dee-be6f-63d40b53a65f) | ![0x4051d34Af2025A33aFD5EacCA7A90046f7a64Bed (1)](https://github.com/user-attachments/assets/87205826-1f76-4724-9734-3ecbfbfb729f) | ![XuJwtHWdsYzfLawymR3B3nDdS2W8dHnxyR](https://github.com/user-attachments/assets/71915604-cc14-426f-a8b9-9b7f023da084) |
+|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
