@@ -6,6 +6,10 @@ authors = ["blueokanna@gmail.com"]
 version = "0.1.2"
 edition = "2021"
 license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/blueokanna/BlueHash"
+keywords = ["Digest","algorithms","Hash"]
+
 
 
 [dependencies]
