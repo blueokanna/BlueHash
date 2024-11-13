@@ -9,27 +9,41 @@
 ## 使用示例
 
 ```
-use BlueHash::BlueHash;     //需要在 cargo.toml 调用BlueHash 库
+//你需要在 cargo.toml 添加 hex 库才可以打印出最后的哈希值, hex = "0.4.3"
+extern crate hex;
 
 fn main() {
-    let data = b"Hello World";
     let key: u64 = 0x1234567890abcdef;
+    let data = b"Hello, world! This is a test message for BlueHash.";
 
-    let mut hash_128 = BlueHash::new(DigestSize::Bit256,key);
-    hash_128.update(data);
-    let result_128 = hash_128.finalize();
-    println!("128-bit hash: {:?}", result_128);
+    // Create a 128-bit BlueHash instance
+    let hash_algorithm_128 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit128, key);
+    let mut hasher_128 = hash_algorithm_128;
+    hasher_128.update(data);
+    let hash_result_128 = hasher_128.finalize();
 
-    let mut hash_256 = BlueHash::new(DigestSize::Bit256,key);
-    hash_256.update(data);
-    let result_256 = hash_256.finalize();
-    println!("256-bit hash: {:?}", result_256);
+    // Create a 256-bit BlueHash instance
+    let hash_algorithm_256 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit256, key);
+    let mut hasher_256 = hash_algorithm_256;
+    hasher_256.update(data);
+    let hash_result_256 = hasher_256.finalize();
 
-    let mut hash_512 = BlueHash::new(DigestSize::Bit512,key);
-    hash_512.update(data);
-    let result_512 = hash_512.finalize();
-    println!("512-bit hash: {:?}", result_512);
+    // Create a 512-bit BlueHash instance
+    let hash_algorithm_512 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit512, key);
+    let mut hasher_512 = hash_algorithm_512;
+    hasher_512.update(data);
+    let hash_result_512 = hasher_512.finalize();
+
+    println!("The full 128-bit hash result is: 0x{}", hex::encode(hash_result_128));
+    println!("The full 256-bit hash result is: 0x{}", hex::encode(hash_result_256));
+    println!("The full 512-bit hash result is: 0x{}", hex::encode(hash_result_512));
 }
+```
+### 你会得到输出结果如下：
+```
+The full 128-bit hash result is: 0xa510f9b53b94e99a79eb6e9853d9d5af
+The full 256-bit hash result is: 0x706fb799d4fd31b69dcc79cd60f2ac21d7dc049b967010301d884c94c951ea91
+The full 512-bit hash result is: 0x0aa20e098099741ab1aa71562671281072ea3c900b5b16b4fba1566402bccb872361e15fcf947187bb2e8358177601969bf9c6f55b911d1fe1910dc7987919e6
 ```
 
 ## 关键组件
