@@ -1,8 +1,9 @@
 [package]
 name = "BlueHash"
+rust-version = "1.82.0"
 description = "A highly secure alternative to existing custom digest algorithms"
 authors = ["blueokanna@gmail.com"]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 

@@ -107,35 +107,35 @@ The security of the **BlueHash** algorithm is based on the following principles:
 By adhering to these principles, **BlueHash** is designed to be a robust cryptographic hash function, resistant to attacks such as collision finding and pre-image attacks.
 
 # Compare to SHA-3 (NIST)
-| **500 Sample in 10s** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
-|-----------------------|--------------|--------------|------------------|------------------|------------------|
-| Slope                 | 334.04 ns	   | 334.41 ns	   | 14.573 µs        | 16.760 µs        | 20.783 µs	       |
-| R^2                   | 0.7966978	   | 0.7135882    | 0.6874281        | 0.8318049        | 0.7470279        |
-| Mean                  | 334.45 ns	   | 336.50 ns	   | 14.538 µs        | 16.751 µs	       | 20.813 µs	       |
-| std. Dev              | 19.989 ns	   | 14.845 ns	   | 374.54 ns        | 376.22 ns	       | 741.25 ns	       |
-| Median                | 333.74 ns	   | 334.67 ns	   | 14.487 µs        | 16.761 µs	       | 20.675 µs	       |
-| MAD                   | 3.5463 ns	   | 2.8191 ns	   | 172.89 ns        | 186.59 ns	       | 263.87 ns	       |
+| **1500 Sample in 10s** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
+|------------------------|--------------|--------------|------------------|------------------|------------------|
+| Slope                  | 334.04 ns	   | 334.41 ns	   | 14.788 µs        | 17.032 µs        | 21.248 µs	       |
+| R^2                    | 0.7966978	   | 0.7135882    | 0.4950626        | 0.7290226        | 0.6919036        |
+| Mean                   | 334.45 ns	   | 336.50 ns	   | 14.857 µs        | 17.038 µs	       | 21.270 µs	       |
+| std. Dev               | 19.989 ns	   | 14.845 ns	   | 355.87 ns        | 314.64 ns	       | 497.63 ns	       |
+| Median                 | 333.74 ns	   | 334.67 ns	   | 14.816 µs        | 17.024 µs	       | 21.207 µs	       |
+| MAD                    | 3.5463 ns	   | 2.8191 ns	   | 178.17 ns        | 205.76 ns	       | 134.15 ns	       |
 
 ## BenchMark for BlueHash and SHA3
 
-### **BlueHash-128 (500 Samples)**
-![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
+### **BlueHash-128 (1500 Samples)**
+![BlueHash-128](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/BlueHash-128.png)
 
-### **BlueHash-256 (500 Samples)**
-![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
+### **BlueHash-256 (1500 Samples)**
+![BlueHash-256](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/BlueHash-256.png)
 
-### **BlueHash-512 (500 Samples)**
-![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)
+### **BlueHash-512 (1500 Samples)**
+![BlueHash-512](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/BlueHash-512.png)
 
-### **BlueHash Differential Attack (1000 Samples and 10 Million Trial Attack)**
-![Attack](https://github.com/blueokanna/BlueHash/blob/main/compare_result/bluehash_hardtest.png)
+### **BlueHash Differential Attack (1500 Samples and 10 Million Trial Attack)**
+![Attack](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/BlueHash_bench.png)
 
 
-### **SHA3-256 (500 Samples)**
-![SHA3-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-256.png)
+### **SHA3-256 (1500 Samples)**
+![SHA3-256](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/SHA3-256.png)
 
-### **SHA3-512 (500 Samples)**
-![SHA3-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/SHA3-512.png)
+### **SHA3-512 (1500 Samples)**
+![SHA3-512](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/SHA3-512.png)
 
 ## What is **BlueHash** Algorithm Pros and Cons?
 
