@@ -3,6 +3,7 @@
 //! This library provides the implementation of the BlueHash algorithm, designed to
 //! resist quantum attacks while maintaining high security. It includes state manipulation,
 //! constant generation, and noise-based perturbations inspired by lattice-based cryptography.
+//! You can check github: https://github.com/blueokanna/BlueHash for details.
 
 mod constants;
 mod noise;

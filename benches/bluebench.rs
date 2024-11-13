@@ -6,7 +6,7 @@ use rand::Rng;
 const STATE_SIZE: usize = 25;  // Sponge state size
 
 #[derive(Debug, Clone, Copy)]  // 为 DigestSize 添加 Copy 和 Clone trait
-enum DigestSize {
+pub enum DigestSize {
     Bit128,
     Bit256,
     Bit512,
@@ -30,20 +30,25 @@ impl DigestSize {
     }
 }
 
-fn generate_lwe_noise(input_data: &[u8], round: usize) -> u64 {
-    let mut hash = 0u64;
+pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64) -> u64 {
+    let mut noise = key;
+
     for (i, byte) in input_data.iter().enumerate() {
-        hash = hash.wrapping_add((*byte as u64).wrapping_mul(i as u64));
+        noise = noise.wrapping_add((*byte as u64).wrapping_mul(i as u64));
+        noise = noise.rotate_left(7); // Rotate by 7 bits for better distribution
     }
-    hash ^= round as u64;
-    hash.rotate_left((round % 64) as u32)
+    noise ^= round as u64;
+    noise = noise.rotate_left((round % 64) as u32);
+
+    noise
 }
 
-fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -> u64 {
-    let prime = 0x9e3779b97f4a7c15u64;
-    let round_factor = (round as u64).wrapping_add(0xabcdef1234567890);
-    let extra_prime = 0x7fffffffffffffffu64;
-    let noise = generate_lwe_noise(input_data, round);
+pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize, key: u64) -> u64 {
+    let prime = 0x9e3779b97f4a7c15u64; // A constant prime number for hash mixing
+    let round_factor = (round as u64).wrapping_add(0xabcdef1234567890); // Round-dependent factor
+    let extra_prime = 0x7fffffffffffffffu64; // Another large prime constant for additional mixing
+
+    let noise = generate_lwe_noise(input_data, round, key);
 
     let rotated_prime = prime.rotate_left((round % 64) as u32);
     rotated_prime
@@ -59,18 +64,20 @@ struct BlueHash {
     state: [u64; STATE_SIZE],
     round_count: usize,
     digest_size: DigestSize,
+    key: u64,
 }
 
 impl BlueHash {
-    fn new(digest_size: DigestSize) -> Self {
+    pub fn new(digest_size: DigestSize, key: u64) -> Self {
         Self {
             state: [0u64; STATE_SIZE],
             round_count: digest_size.round_count(),
             digest_size,
+            key,
         }
     }
 
-    fn update(&mut self, data: &[u8]) {
+    pub fn update(&mut self, data: &[u8]) {
         for chunk in data.chunks(8) {
             let block = Self::to_u64(chunk);
             self.state[0] ^= block;
@@ -81,7 +88,7 @@ impl BlueHash {
     fn permute(&mut self, input_data: &[u8]) {
         let mut local_vars: [u64; 5];
         for round in 0..self.round_count {
-            let constant = generate_constants(round, input_data, self.round_count);
+            let constant = generate_constants(round, input_data, self.round_count, self.key);
 
             for i in 0..STATE_SIZE {
                 local_vars = [
@@ -103,7 +110,7 @@ impl BlueHash {
         }
     }
 
-    fn finalize(&self) -> Vec<u8> {
+    pub fn finalize(&self) -> Vec<u8> {
         let digest_size = self.digest_size.digest_length();
         let mut result = vec![0u8; digest_size];
         let mut output_idx = 0;
@@ -121,19 +128,19 @@ impl BlueHash {
         result
     }
 
-    fn to_u64(chunk: &[u8]) -> u64 {
+    pub fn to_u64(chunk: &[u8]) -> u64 {
         chunk.iter().fold(0, |acc, &b| (acc << 8) | b as u64)
     }
 }
 
-fn collision_test(digest_size: DigestSize, trials: usize) -> f64 {
+pub fn collision_test(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
     let mut rng = rand::thread_rng();
     let mut hashes = HashSet::new();
     let mut collisions = 0;
 
     for _ in 0..trials {
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::new(digest_size);
+        let mut hash = BlueHash::new(digest_size, key);
         hash.update(&data);
         let result = hash.finalize();
 
@@ -145,20 +152,20 @@ fn collision_test(digest_size: DigestSize, trials: usize) -> f64 {
     collisions as f64 / trials as f64
 }
 
-fn differential_attack_test(digest_size: DigestSize, trials: usize) -> f64 {
+pub fn differential_attack_test(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
     let mut rng = rand::thread_rng();
     let mut avalanche_effect = 0.0;
 
     for _ in 0..trials {
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::new(digest_size);
+        let mut hash = BlueHash::new(digest_size, key);
         hash.update(&data);
         let original_hash = hash.finalize();
 
         let mut modified_data = data.clone();
         modified_data[0] ^= 0x01; // Flip one bit
 
-        let mut modified_hash = BlueHash::new(digest_size);
+        let mut modified_hash = BlueHash::new(digest_size,key);
         modified_hash.update(&modified_data);
         let modified_result = modified_hash.finalize();
 
@@ -173,13 +180,14 @@ fn differential_attack_test(digest_size: DigestSize, trials: usize) -> f64 {
     avalanche_effect / trials as f64
 }
 
-fn bench_bluehash(c: &mut Criterion) {
+pub fn bench_bluehash(c: &mut Criterion) {
     let data = b"Benchmarking BlueHash performance";
+    let key: u64 = 0x1234567890abcdef;
 
     // Performance Benchmark
     c.bench_function("BlueHash 128-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit128);
+            let mut hash = BlueHash::new(DigestSize::Bit128, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -187,7 +195,7 @@ fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 256-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit256);
+            let mut hash = BlueHash::new(DigestSize::Bit256, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -195,29 +203,29 @@ fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 512-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit512);
+            let mut hash = BlueHash::new(DigestSize::Bit512, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
     });
 
     // Security Testing
-    let collision_rate_128 = collision_test(DigestSize::Bit128, 100000);   //1000w
+    let collision_rate_128 = collision_test(DigestSize::Bit128, key,10000000);   //1000w
     println!("128-bit collision rate: {}", collision_rate_128);
 
-    let avalanche_effect_128 = differential_attack_test(DigestSize::Bit128, 100000);
+    let avalanche_effect_128 = differential_attack_test(DigestSize::Bit128,key, 10000000);
     println!("128-bit differential attack avalanche effect: {}", avalanche_effect_128);
 
-    let collision_rate_256 = collision_test(DigestSize::Bit256, 100000);
+    let collision_rate_256 = collision_test(DigestSize::Bit256, key,10000000);
     println!("256-bit collision rate: {}", collision_rate_256);
 
-    let avalanche_effect_256 = differential_attack_test(DigestSize::Bit256, 100000);
+    let avalanche_effect_256 = differential_attack_test(DigestSize::Bit256,key, 10000000);
     println!("256-bit differential attack avalanche effect: {}", avalanche_effect_256);
 
-    let collision_rate_512 = collision_test(DigestSize::Bit512, 100000);
+    let collision_rate_512 = collision_test(DigestSize::Bit512, key,10000000);
     println!("512-bit collision rate: {}", collision_rate_512);
 
-    let avalanche_effect_512 = differential_attack_test(DigestSize::Bit512, 100000);
+    let avalanche_effect_512 = differential_attack_test(DigestSize::Bit512, key,10000000);
     println!("512-bit differential attack avalanche effect: {}", avalanche_effect_512);
 }
 

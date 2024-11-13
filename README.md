@@ -107,14 +107,14 @@ The security of the **BlueHash** algorithm is based on the following principles:
 By adhering to these principles, **BlueHash** is designed to be a robust cryptographic hash function, resistant to attacks such as collision finding and pre-image attacks.
 
 # Compare to SHA-3 (NIST)
-| **1500 Sample in 10s** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
-|------------------------|--------------|--------------|------------------|------------------|------------------|
-| Slope                  | 334.04 ns	   | 334.41 ns	   | 14.788 µs        | 17.032 µs        | 21.248 µs	       |
-| R^2                    | 0.7966978	   | 0.7135882    | 0.4950626        | 0.7290226        | 0.6919036        |
-| Mean                   | 334.45 ns	   | 336.50 ns	   | 14.857 µs        | 17.038 µs	       | 21.270 µs	       |
-| std. Dev               | 19.989 ns	   | 14.845 ns	   | 355.87 ns        | 314.64 ns	       | 497.63 ns	       |
-| Median                 | 333.74 ns	   | 334.67 ns	   | 14.816 µs        | 17.024 µs	       | 21.207 µs	       |
-| MAD                    | 3.5463 ns	   | 2.8191 ns	   | 178.17 ns        | 205.76 ns	       | 134.15 ns	       |
+| **1500 Sample** | **SHA3 256** | **SHA3 512** | **BlueHash 128** | **BlueHash 256** | **BlueHash 512** |
+|------------------|--------------|--------------|------------------|------------------|------------------|
+| Slope            | 334.04 ns	   | 334.41 ns	   | 14.788 µs        | 17.032 µs        | 21.248 µs	       |
+| R^2              | 0.7966978	   | 0.7135882    | 0.4950626        | 0.7290226        | 0.6919036        |
+| Mean             | 334.45 ns	   | 336.50 ns	   | 14.857 µs        | 17.038 µs	       | 21.270 µs	       |
+| std. Dev         | 19.989 ns	   | 14.845 ns	   | 355.87 ns        | 314.64 ns	       | 497.63 ns	       |
+| Median           | 333.74 ns	   | 334.67 ns	   | 14.816 µs        | 17.024 µs	       | 21.207 µs	       |
+| MAD              | 3.5463 ns	   | 2.8191 ns	   | 178.17 ns        | 205.76 ns	       | 134.15 ns	       |
 
 ## BenchMark for BlueHash and SHA3
 
