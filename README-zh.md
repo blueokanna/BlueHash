@@ -6,6 +6,32 @@
 
 本文档提供了该算法核心组件的解释，包括状态大小、回合次数、常量生成和状态更新转换。文中还提供了描述每一步过程的数学公式。
 
+## 使用示例
+
+```
+use BlueHash::BlueHash;     //需要在 cargo.toml 调用BlueHash 库
+
+fn main() {
+    let data = b"Hello World";
+    let key: u64 = 0x1234567890abcdef;
+
+    let mut hash_128 = BlueHash::new(DigestSize::Bit256,key);
+    hash_128.update(data);
+    let result_128 = hash_128.finalize();
+    println!("128-bit hash: {:?}", result_128);
+
+    let mut hash_256 = BlueHash::new(DigestSize::Bit256,key);
+    hash_256.update(data);
+    let result_256 = hash_256.finalize();
+    println!("256-bit hash: {:?}", result_256);
+
+    let mut hash_512 = BlueHash::new(DigestSize::Bit512,key);
+    hash_512.update(data);
+    let result_512 = hash_512.finalize();
+    println!("512-bit hash: {:?}", result_512);
+}
+```
+
 ## 关键组件
 
 ### 1. 状态大小和摘要长度

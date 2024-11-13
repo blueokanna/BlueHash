@@ -6,6 +6,32 @@ The **BlueHash** algorithm is a custom cryptographic hash function designed to g
 
 This documentation provides an explanation of the algorithm's core components, including the state size, round counts, constant generation, and state update transformations. Mathematical formulas are provided to describe each step in the process.
 
+## Use Example
+
+```
+use BlueHash::BlueHash;
+
+fn main() {
+    let data = b"Hello World";
+    let key: u64 = 0x1234567890abcdef;
+
+    let mut hash_128 = BlueHash::new(DigestSize::Bit256,key);
+    hash_128.update(data);
+    let result_128 = hash_128.finalize();
+    println!("128-bit hash: {:?}", result_128);
+
+    let mut hash_256 = BlueHash::new(DigestSize::Bit256,key);
+    hash_256.update(data);
+    let result_256 = hash_256.finalize();
+    println!("256-bit hash: {:?}", result_256);
+
+    let mut hash_512 = BlueHash::new(DigestSize::Bit512,key);
+    hash_512.update(data);
+    let result_512 = hash_512.finalize();
+    println!("512-bit hash: {:?}", result_512);
+}
+```
+
 ## Key Components
 
 ### 1. State Size and Digest Length
