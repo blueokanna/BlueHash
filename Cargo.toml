@@ -1,14 +1,13 @@
 [package]
 name = "BlueHash"
-rust-version = "1.82.0"
 description = "A highly secure alternative to existing custom digest algorithms"
 authors = ["blueokanna@gmail.com"]
-version = "0.1.1-adv"
+version = "0.1.2"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/blueokanna/BlueHash"
-keywords = ["Digest","algorithms","Hash"]
+keywords = ["Digest", "Algorithms", "Hash", "Crypto"]
 
 
 
@@ -18,5 +17,5 @@ criterion = { version = "0.5.1", features = ["plotters"] }
 
 
 [[bench]]
-name ="bluebench"
+name = "bluebench"
 harness = false
