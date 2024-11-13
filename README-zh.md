@@ -113,10 +113,10 @@ $$
 ## BlueHash 和 SHA3 的性能基本测试
 
 ### **BlueHash-128 (500 个样本点)**
-![BlueHash-128](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-128.png)
+![BlueHash-128](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/blue-128.png)
 
 ### **BlueHash-256 (500 个样本点)**
-![BlueHash-256](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-256.png)
+![BlueHash-256](https://raw.githubusercontent.com/blueokanna/BlueHash/refs/heads/main/compare_result/blue-256.png)
 
 ### **BlueHash-512 (500 个样本点)**
 ![BlueHash-512](https://github.com/blueokanna/BlueHash/blob/main/compare_result/blue-512.png)

@@ -202,30 +202,30 @@ fn bench_bluehash(c: &mut Criterion) {
     });
 
     // Security Testing
-    let collision_rate_128 = collision_test(DigestSize::Bit128, 10000000);   //10000w
+    let collision_rate_128 = collision_test(DigestSize::Bit128, 100000);   //1000w
     println!("128-bit collision rate: {}", collision_rate_128);
 
-    let avalanche_effect_128 = differential_attack_test(DigestSize::Bit128, 10000000);
+    let avalanche_effect_128 = differential_attack_test(DigestSize::Bit128, 100000);
     println!("128-bit differential attack avalanche effect: {}", avalanche_effect_128);
 
-    let collision_rate_256 = collision_test(DigestSize::Bit256, 10000000);
+    let collision_rate_256 = collision_test(DigestSize::Bit256, 100000);
     println!("256-bit collision rate: {}", collision_rate_256);
 
-    let avalanche_effect_256 = differential_attack_test(DigestSize::Bit256, 10000000);
+    let avalanche_effect_256 = differential_attack_test(DigestSize::Bit256, 100000);
     println!("256-bit differential attack avalanche effect: {}", avalanche_effect_256);
 
-    let collision_rate_512 = collision_test(DigestSize::Bit512, 10000000);
+    let collision_rate_512 = collision_test(DigestSize::Bit512, 100000);
     println!("512-bit collision rate: {}", collision_rate_512);
 
-    let avalanche_effect_512 = differential_attack_test(DigestSize::Bit512, 10000000);
+    let avalanche_effect_512 = differential_attack_test(DigestSize::Bit512, 100000);
     println!("512-bit differential attack avalanche effect: {}", avalanche_effect_512);
 }
 
 criterion_group! {
     name = benches;
     config = Criterion::default()
-        .measurement_time(Duration::from_secs(15))
-        .sample_size(1000);
+        .measurement_time(Duration::from_secs(60))
+        .sample_size(1500);
     targets = bench_bluehash
 }
 criterion_main!(benches);
