@@ -14,7 +14,7 @@ use crate::constants::generate_constants;
 const STATE_SIZE: usize = 25;
 
 #[derive(Debug)]
-enum DigestSize {
+pub enum DigestSize {
     Bit128,
     Bit256,
     Bit512,
