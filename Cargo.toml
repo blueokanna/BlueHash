@@ -2,14 +2,12 @@
 name = "BlueHash"
 description = "A highly secure alternative to existing custom digest algorithms."
 authors = ["blueokanna@gmail.com"]
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/blueokanna/BlueHash"
 keywords = ["Digest", "Algorithms", "Hash", "Crypto"]
-
-
 
 [dependencies]
 rand = "0.8.5"

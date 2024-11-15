@@ -6,14 +6,16 @@
 //!
 //! You can check github: https://github.com/blueokanna/BlueHash for details.
 
-mod constants;
-mod noise;
-mod utils;
+pub mod constants;
+pub mod noise;
+pub mod utils;
 
-use crate::constants::generate_constants;
+use std::collections::VecDeque;
+pub use constants::generate_constants;
+pub use noise::generate_lwe_noise;
+pub use utils::to_u64;
 
-/// The size of the state array (fixed size).
-const STATE_SIZE: usize = 25;
+pub const STATE_SIZE: usize = 25;
 
 #[derive(Debug, Copy, Clone)]
 #[warn(non_snake_case)]
@@ -24,7 +26,7 @@ pub enum DigestSize {
 }
 
 impl DigestSize {
-    fn round_count(&self) -> usize {
+    pub fn round_count(&self) -> usize {
         match self {
             DigestSize::Bit128 => 56,
             DigestSize::Bit256 => 64,
@@ -32,7 +34,7 @@ impl DigestSize {
         }
     }
 
-    fn digest_length(&self) -> usize {
+    pub fn digest_length(&self) -> usize {
         match self {
             DigestSize::Bit128 => 16,
             DigestSize::Bit256 => 32,
@@ -46,7 +48,6 @@ pub struct BlueHash {
     state: [u64; STATE_SIZE],
     round_count: usize,
     digest_size: DigestSize,
-    key: u64,
 }
 
 impl BlueHash {
@@ -55,17 +56,15 @@ impl BlueHash {
     /// # Arguments
     ///
     /// * `digest_size` - Defines the desired size of the resulting hash (e.g., 128-bit, 256-bit).
-    /// * `key` - A secret key used for noise generation and state manipulation.
     ///
     /// # Returns
     ///
     /// A new `BlueHash` instance with the specified configuration.
-    pub fn new(digest_size: &DigestSize, key: u64) -> Self {
+    pub fn new(digest_size: DigestSize) -> Self {
         Self {
             state: [0u64; STATE_SIZE],
             round_count: digest_size.round_count(),
-            digest_size: digest_size.clone(),
-            key,
+            digest_size,
         }
     }
 
@@ -76,7 +75,7 @@ impl BlueHash {
     /// * `data` - Input data to update the hash state.
     pub fn update(&mut self, data: &[u8]) {
         for chunk in data.chunks(8) {
-            let block = utils::to_u64(chunk);
+            let block = to_u64(chunk);
             self.state[0] ^= block;
             self.permute(data);
         }
@@ -88,25 +87,37 @@ impl BlueHash {
     ///
     /// * `input_data` - The data used to perturb the state.
     fn permute(&mut self, input_data: &[u8]) {
-        let mut local_vars = [0u64; 5];
+        let mut queue: VecDeque<u64> = VecDeque::new();
+
+        // Using the idea of Merkle tree to reduce repeated calculations
         for round in 0..self.round_count {
-            let constant = generate_constants(round, input_data, self.round_count, self.key);
+            let constant = generate_constants(round, input_data, self.round_count);
+            let state = &mut self.state;
+
+            // Change the state update to a divide-and-conquer calculation on a tree structure
             for i in 0..STATE_SIZE {
-                local_vars = [
-                    self.state[(i + 1) % STATE_SIZE],
-                    self.state[(i + 2) % STATE_SIZE],
-                    self.state[(i + 3) % STATE_SIZE],
-                    self.state[(i + 4) % STATE_SIZE],
-                    self.state[(i + 5) % STATE_SIZE],
+                let local_vars = [
+                    state[(i + 1) % STATE_SIZE],
+                    state[(i + 2) % STATE_SIZE],
+                    state[(i + 3) % STATE_SIZE],
+                    state[(i + 4) % STATE_SIZE],
+                    state[(i + 5) % STATE_SIZE],
                 ];
 
-                self.state[i] = self.state[i]
-                    .rotate_left(29)
+                let tmp = state[i]
                     .wrapping_add(constant)
                     .wrapping_add(local_vars[2])
-                    ^ (local_vars[0] & local_vars[1])
-                    ^ local_vars[3].rotate_right(17)
-                    ^ constant.rotate_left(23);
+                    .rotate_left(29)
+                    .wrapping_add(local_vars[0] & local_vars[1])
+                    .wrapping_add(local_vars[3].rotate_right(17))
+                    .rotate_left(23);
+
+                queue.push_back(tmp);
+            }
+
+            // After each round of calculation, the update of the state value is optimized through the queue
+            for i in 0..STATE_SIZE {
+                self.state[i] = queue.pop_front().unwrap_or(0);
             }
         }
     }

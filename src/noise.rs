@@ -11,23 +11,25 @@
 ///
 /// * `input_data` - The input data used to generate the noise.
 /// * `round` - The current round number in the hash algorithm.
-/// * `key` - A secret key that adds an extra layer of security to the noise generation.
+/// * `prime` - A secret key that adds an extra layer of security to the noise generation.
 ///
 /// # Returns
 ///
 /// A 64-bit unsigned integer representing the generated noise value.
 
-use rand::Rng;
-#[warn(unused_variables)]
-pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64, prime: u64) -> u64 {
-    let mut rng = rand::thread_rng();
-    let s: Vec<u64> = (0..input_data.len()).map(|_| rng.gen::<u64>() % prime).collect();
-    let mut noise = 0u64;
+pub fn generate_lwe_noise(input_data: &[u8], round: usize, prime: u64) -> u64 {
+    let mut noise = prime;
 
-    for (i, &byte) in input_data.iter().enumerate() {
-        let a = rng.gen::<u64>() % prime;
-        noise = noise.wrapping_add((a * s[i] + byte as u64) % prime);
+    // Iterate over input_data, multiply each byte by the index and add it to noise
+    for (i, byte) in input_data.iter().enumerate() {
+        // Use wrapping_mul and wrapping_add to ensure no overflow
+        let multiplied = (*byte as u64).wrapping_mul(i as u64);
+        noise = noise.wrapping_add(multiplied);
+        noise = noise.rotate_left(7); // Shift operations are used to distribute noise
     }
 
-    noise.rotate_left((round % 64) as u32)
+    noise ^= round as u64;
+    noise = noise.rotate_left((round % 64) as u32); // Round shift operation
+
+    noise
 }

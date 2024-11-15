@@ -12,3 +12,4 @@
 pub fn to_u64(chunk: &[u8]) -> u64 {
     chunk.iter().fold(0, |acc, &b| (acc << 8) | b as u64)
 }
+
