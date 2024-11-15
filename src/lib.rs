@@ -11,12 +11,12 @@ mod noise;
 mod utils;
 
 use crate::constants::generate_constants;
-use rand::Rng;
 
 /// The size of the state array (fixed size).
 const STATE_SIZE: usize = 25;
 
 #[derive(Debug, Copy, Clone)]
+#[warn(non_snake_case)]
 pub enum DigestSize {
     Bit128,
     Bit256,

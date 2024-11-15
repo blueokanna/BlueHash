@@ -18,7 +18,7 @@
 /// A 64-bit unsigned integer representing the generated noise value.
 
 use rand::Rng;
-
+#[warn(unused_variables)]
 pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64, prime: u64) -> u64 {
     let mut rng = rand::thread_rng();
     let s: Vec<u64> = (0..input_data.len()).map(|_| rng.gen::<u64>() % prime).collect();

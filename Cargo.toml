@@ -1,6 +1,6 @@
 [package]
 name = "BlueHash"
-description = "A highly secure alternative to existing custom digest algorithms"
+description = "A highly secure alternative to existing custom digest algorithms."
 authors = ["blueokanna@gmail.com"]
 version = "0.1.3"
 edition = "2021"
