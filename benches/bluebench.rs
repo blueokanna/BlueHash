@@ -1,11 +1,13 @@
 use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::time::Duration;
+use rayon::prelude::*;
 use rand::Rng;
+const STATE_SIZE: usize = 25;
 
-const STATE_SIZE: usize = 25;  // Sponge state size
-
-#[derive(Debug, Clone, Copy)]  // 为 DigestSize 添加 Copy 和 Clone trait
+#[derive(Debug, Clone, Copy)]
 pub enum DigestSize {
     Bit128,
     Bit256,
@@ -30,25 +32,24 @@ impl DigestSize {
     }
 }
 
-pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64) -> u64 {
-    let mut noise = key;
+pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64, prime: u64) -> u64 {
+    let mut rng = rand::thread_rng();
+    let s: Vec<u64> = (0..input_data.len()).map(|_| rng.gen::<u64>() % prime).collect();
+    let mut noise = 0u64;
 
-    for (i, byte) in input_data.iter().enumerate() {
-        noise = noise.wrapping_add((*byte as u64).wrapping_mul(i as u64));
-        noise = noise.rotate_left(7); // Rotate by 7 bits for better distribution
+    for (i, &byte) in input_data.iter().enumerate() {
+        let a = rng.gen::<u64>() % prime;
+        noise = noise.wrapping_add((a * s[i] + byte as u64) % prime);
     }
-    noise ^= round as u64;
-    noise = noise.rotate_left((round % 64) as u32);
 
-    noise
+    noise.rotate_left((round % 64) as u32)
 }
 
 pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize, key: u64) -> u64 {
-    let prime = 0x9e3779b97f4a7c15u64; // A constant prime number for hash mixing
-    let round_factor = (round as u64).wrapping_add(0xabcdef1234567890); // Round-dependent factor
-    let extra_prime = 0x7fffffffffffffffu64; // Another large prime constant for additional mixing
-
-    let noise = generate_lwe_noise(input_data, round, key);
+    let prime = 0x9e3779b97f4a7c15u64;
+    let round_factor = (round as u64).wrapping_add(0xabcdef1234567890);
+    let extra_prime = 0x7fffffffffffffffu64;
+    let noise = generate_lwe_noise(input_data, round, key, prime);
 
     let rotated_prime = prime.rotate_left((round % 64) as u32);
     rotated_prime
@@ -59,7 +60,7 @@ pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize, k
         .wrapping_add(hash_length as u64)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct BlueHash {
     state: [u64; STATE_SIZE],
     round_count: usize,
@@ -68,11 +69,11 @@ struct BlueHash {
 }
 
 impl BlueHash {
-    pub fn new(digest_size: DigestSize, key: u64) -> Self {
+    pub fn new(digest_size: &DigestSize, key: u64) -> Self {
         Self {
             state: [0u64; STATE_SIZE],
             round_count: digest_size.round_count(),
-            digest_size,
+            digest_size: digest_size.clone(),
             key,
         }
     }
@@ -133,39 +134,76 @@ impl BlueHash {
     }
 }
 
-pub fn collision_test(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
-    let mut rng = rand::thread_rng();
-    let mut hashes = HashSet::new();
-    let mut collisions = 0;
+// 并行碰撞测试
+pub fn parallel_collision_test(digest_size: DigestSize, key: u64, trials: usize, num_threads: usize) -> f64 {
+    let hashes = Arc::new(Mutex::new(HashSet::new())); // 共享的 HashSet，多个线程可以访问
+    let collisions = Arc::new(Mutex::new(0)); // 共享的碰撞计数器
 
-    for _ in 0..trials {
-        let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::new(digest_size, key);
-        hash.update(&data);
-        let result = hash.finalize();
+    // 每个线程执行的任务
+    let trials_per_thread = trials / num_threads;
 
-        if !hashes.insert(result) {
-            collisions += 1;
-        }
+    let mut handles = vec![];
+
+    for _ in 0..num_threads {
+        let hashes = Arc::clone(&hashes);
+        let collisions = Arc::clone(&collisions);
+
+        let handle = thread::spawn(move || {
+            let mut rng = rand::thread_rng();
+            let mut local_hashes = HashSet::new();
+            let mut local_collisions = 0;
+
+            for _ in 0..trials_per_thread {
+                let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+                let mut hash = BlueHash::new(&digest_size, key);
+                hash.update(&data);
+                let result = hash.finalize();
+
+                // 检测碰撞
+                if !local_hashes.insert(result.to_vec()) {
+                    local_collisions += 1;
+                }
+            }
+
+            // 将本地碰撞和 HashSet 合并到全局
+            let mut global_hashes = hashes.lock().unwrap();
+            global_hashes.extend(local_hashes); // 合并本地 HashSet
+            let mut global_collisions = collisions.lock().unwrap();
+            *global_collisions += local_collisions; // 更新全局碰撞计数
+        });
+
+        handles.push(handle);
     }
 
-    collisions as f64 / trials as f64
+    // 等待所有线程执行完
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    // 计算总的碰撞率
+    let collisions_count = *collisions.lock().unwrap();
+    collisions_count as f64 / trials as f64
 }
 
+// 差分攻击测试
 pub fn differential_attack_test(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
-    let mut rng = rand::thread_rng();
-    let mut avalanche_effect = 0.0;
-
-    for _ in 0..trials {
+    let avalanche_effects: Vec<f64> = (0..trials).into_par_iter().map(|_| {
+        let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::new(digest_size, key);
+        let mut hash = BlueHash::new(&digest_size, key);
         hash.update(&data);
         let original_hash = hash.finalize();
 
         let mut modified_data = data.clone();
-        modified_data[0] ^= 0x01; // Flip one bit
+        let mod_type = rng.gen_range(0..3);
+        match mod_type {
+            0 => modified_data[0] ^= 0x01,
+            1 => modified_data[0..8].reverse(),
+            2 => modified_data[16..24].fill(0xFF),
+            _ => {}
+        }
 
-        let mut modified_hash = BlueHash::new(digest_size,key);
+        let mut modified_hash = BlueHash::new(&digest_size, key);
         modified_hash.update(&modified_data);
         let modified_result = modified_hash.finalize();
 
@@ -174,20 +212,117 @@ pub fn differential_attack_test(digest_size: DigestSize, key: u64, trials: usize
             .map(|(a, b)| (a ^ b).count_ones() as f64)
             .sum::<f64>();
 
-        avalanche_effect += bit_diff / (original_hash.len() * 8) as f64;
-    }
+        bit_diff / (original_hash.len() * 8) as f64
+    }).collect();
 
-    avalanche_effect / trials as f64
+    avalanche_effects.iter().sum::<f64>() / trials as f64
 }
 
+// 第二原像攻击
+pub fn second_preimage_attack(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
+    let successful_attacks: Vec<f64> = (0..trials).into_par_iter().map(|_| {
+        let mut rng = rand::thread_rng();
+        let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let mut hash = BlueHash::new(&digest_size, key);
+        hash.update(&data);
+        let original_hash = hash.finalize();
+
+        let mut second_data = data.clone();
+        second_data[0] ^= 0x01;
+
+        let mut second_hash = BlueHash::new(&digest_size, key);
+        second_hash.update(&second_data);
+        let second_hash_result = second_hash.finalize();
+
+        if original_hash == second_hash_result {
+            1.0
+        } else {
+            0.0
+        }
+    }).collect();
+
+    successful_attacks.iter().sum::<f64>() / trials as f64
+}
+
+// 向前安全性测试
+pub fn forward_security_test(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
+    let success_count: Vec<f64> = (0..trials).into_par_iter().map(|_| {
+        let mut rng = rand::thread_rng();
+        let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let mut hash = BlueHash::new(&digest_size, key);
+        hash.update(&data);
+        let hash_result = hash.finalize();
+
+        let guess: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let mut guess_hash = BlueHash::new(&digest_size, key);
+        guess_hash.update(&guess);
+        let guess_result = guess_hash.finalize();
+
+        if guess_result == hash_result {
+            1.0
+        } else {
+            0.0
+        }
+    }).collect();
+
+    success_count.iter().sum::<f64>() / trials as f64
+}
+
+// 生日攻击
+pub fn birthday_attack(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
+    let collisions: Vec<f64> = (0..trials).into_par_iter().map(|_| {
+        let mut rng = rand::thread_rng();
+        let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let mut hash = BlueHash::new(&digest_size, key);
+        hash.update(&data);
+        let result = hash.finalize();
+
+        let mut hashes = HashSet::new();
+        if !hashes.insert(result) {
+            1.0
+        } else {
+            0.0
+        }
+    }).collect();
+
+    collisions.iter().sum::<f64>() / trials as f64
+}
+
+// 长度扩展攻击
+pub fn length_extension_attack(digest_size: DigestSize, key: u64, trials: usize) -> f64 {
+    let successful_attacks: Vec<f64> = (0..trials).into_par_iter().map(|_| {
+        let mut rng = rand::thread_rng();
+        let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+        let mut hash = BlueHash::new(&digest_size, key);
+        hash.update(&data);
+        let original_hash = hash.finalize();
+
+        let extra_data: Vec<u8> = (0..16).map(|_| rng.gen()).collect();
+        let mut attack_data = data.clone();
+        attack_data.extend(extra_data.clone());
+
+        let mut attack_hash = BlueHash::new(&digest_size, key);
+        attack_hash.update(&attack_data);
+        let attack_result = attack_hash.finalize();
+
+        if attack_result == original_hash {
+            1.0
+        } else {
+            0.0
+        }
+    }).collect();
+
+    successful_attacks.iter().sum::<f64>() / trials as f64
+}
+
+
 pub fn bench_bluehash(c: &mut Criterion) {
-    let data = b"Benchmarking BlueHash performance";
+    let data = b"A benchmark for BlueHash performance";
     let key: u64 = 0x1234567890abcdef;
 
-    // Performance Benchmark
     c.bench_function("BlueHash 128-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit128, key);
+            let mut hash = BlueHash::new(&DigestSize::Bit128, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -195,7 +330,7 @@ pub fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 256-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit256, key);
+            let mut hash = BlueHash::new(&DigestSize::Bit256, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -203,37 +338,39 @@ pub fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 512-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::new(DigestSize::Bit512, key);
+            let mut hash = BlueHash::new(&DigestSize::Bit512, key);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
     });
 
-    // Security Testing
-    let collision_rate_128 = collision_test(DigestSize::Bit128, key,10000000);   //1000w
-    println!("128-bit collision rate: {}", collision_rate_128);
+    println!("Collision attack test (128-bit): {}", parallel_collision_test(DigestSize::Bit128, key, 1000000, 12));
+    println!("Differential attack test (128-bit): {}", differential_attack_test(DigestSize::Bit128, key, 1000000));
+    println!("Second preimage attack (128-bit): {}", second_preimage_attack(DigestSize::Bit128, key, 1000000));
+    println!("Forward security test (128-bit): {}", forward_security_test(DigestSize::Bit128, key, 1000000));
+    println!("Birthday attack (128-bit): {}", birthday_attack(DigestSize::Bit128, key, 1000000));
+    println!("Length extension attack (128-bit): {}", length_extension_attack(DigestSize::Bit128, key, 100000));
 
-    let avalanche_effect_128 = differential_attack_test(DigestSize::Bit128,key, 10000000);
-    println!("128-bit differential attack avalanche effect: {}", avalanche_effect_128);
+    println!("Collision attack test (256-bit): {}", parallel_collision_test(DigestSize::Bit256, key, 1000000, 13));
+    println!("Differential attack test (256-bit): {}", differential_attack_test(DigestSize::Bit256, key, 1000000));
+    println!("Second preimage attack (256-bit): {}", second_preimage_attack(DigestSize::Bit256, key, 1000000));
+    println!("Forward security test (256-bit): {}", forward_security_test(DigestSize::Bit256, key, 1000000));
+    println!("Birthday attack (256-bit): {}", birthday_attack(DigestSize::Bit256, key, 1000000));
+    println!("Length extension attack (256-bit): {}", length_extension_attack(DigestSize::Bit256, key, 100000));
 
-    let collision_rate_256 = collision_test(DigestSize::Bit256, key,10000000);
-    println!("256-bit collision rate: {}", collision_rate_256);
-
-    let avalanche_effect_256 = differential_attack_test(DigestSize::Bit256,key, 10000000);
-    println!("256-bit differential attack avalanche effect: {}", avalanche_effect_256);
-
-    let collision_rate_512 = collision_test(DigestSize::Bit512, key,10000000);
-    println!("512-bit collision rate: {}", collision_rate_512);
-
-    let avalanche_effect_512 = differential_attack_test(DigestSize::Bit512, key,10000000);
-    println!("512-bit differential attack avalanche effect: {}", avalanche_effect_512);
+    println!("Collision attack test (512-bit): {}", parallel_collision_test(DigestSize::Bit512, key, 1000000, 14));
+    println!("Differential attack test (512-bit): {}", differential_attack_test(DigestSize::Bit512, key, 1000000));
+    println!("Second preimage attack (512-bit): {}", second_preimage_attack(DigestSize::Bit512, key, 1000000));
+    println!("Forward security test (512-bit): {}", forward_security_test(DigestSize::Bit512, key, 1000000));
+    println!("Birthday attack (512-bit): {}", birthday_attack(DigestSize::Bit512, key, 1000000));
+    println!("Length extension attack (512-bit): {}", length_extension_attack(DigestSize::Bit512, key, 100000));
 }
 
 criterion_group! {
     name = benches;
     config = Criterion::default()
-        .measurement_time(Duration::from_secs(60))
-        .sample_size(1500);
+        .measurement_time(Duration::from_secs(10))
+        .sample_size(500);
     targets = bench_bluehash
 }
 criterion_main!(benches);

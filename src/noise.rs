@@ -1,3 +1,4 @@
+
 /// Generates LWE noise based on the input data, round number, and secret key.
 /// The noise is designed to enhance resistance against quantum attacks by using
 /// a combination of multiplicative and additive operations, with bit rotations
@@ -15,22 +16,18 @@
 /// # Returns
 ///
 /// A 64-bit unsigned integer representing the generated noise value.
-pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64) -> u64 {
-    // Initial noise value is derived from the secret key to ensure consistency
-    let mut noise = key;
 
-    // Sum the weighted contributions of each byte in the input data
-    for (i, byte) in input_data.iter().enumerate() {
-        noise = noise.wrapping_add((*byte as u64).wrapping_mul(i as u64));
-        noise = noise.rotate_left(7); // Rotate by 7 bits for better distribution
+use rand::Rng;
+
+pub fn generate_lwe_noise(input_data: &[u8], round: usize, key: u64, prime: u64) -> u64 {
+    let mut rng = rand::thread_rng();
+    let s: Vec<u64> = (0..input_data.len()).map(|_| rng.gen::<u64>() % prime).collect();
+    let mut noise = 0u64;
+
+    for (i, &byte) in input_data.iter().enumerate() {
+        let a = rng.gen::<u64>() % prime;
+        noise = noise.wrapping_add((a * s[i] + byte as u64) % prime);
     }
 
-    // Introduce round-based variation by XOR the round number into the noise
-    noise ^= round as u64;
-
-    // Apply another rotation to further disrupt the noise distribution
-    noise = noise.rotate_left((round % 64) as u32);
-
-    // Return the generated noise
-    noise
+    noise.rotate_left((round % 64) as u32)
 }

@@ -3,6 +3,7 @@
 //! This library provides the implementation of the BlueHash algorithm, designed to
 //! resist quantum attacks while maintaining high security. It includes state manipulation,
 //! constant generation, and noise-based perturbations inspired by lattice-based cryptography.
+//!
 //! You can check github: https://github.com/blueokanna/BlueHash for details.
 
 mod constants;
@@ -10,11 +11,12 @@ mod noise;
 mod utils;
 
 use crate::constants::generate_constants;
+use rand::Rng;
 
 /// The size of the state array (fixed size).
 const STATE_SIZE: usize = 25;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum DigestSize {
     Bit128,
     Bit256,
@@ -39,7 +41,7 @@ impl DigestSize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlueHash {
     state: [u64; STATE_SIZE],
     round_count: usize,
@@ -58,11 +60,11 @@ impl BlueHash {
     /// # Returns
     ///
     /// A new `BlueHash` instance with the specified configuration.
-    pub fn new(digest_size: DigestSize, key: u64) -> Self {
+    pub fn new(digest_size: &DigestSize, key: u64) -> Self {
         Self {
             state: [0u64; STATE_SIZE],
             round_count: digest_size.round_count(),
-            digest_size,
+            digest_size: digest_size.clone(),
             key,
         }
     }
@@ -86,7 +88,7 @@ impl BlueHash {
     ///
     /// * `input_data` - The data used to perturb the state.
     fn permute(&mut self, input_data: &[u8]) {
-        let mut local_vars: [u64; 5];
+        let mut local_vars = [0u64; 5];
         for round in 0..self.round_count {
             let constant = generate_constants(round, input_data, self.round_count, self.key);
             for i in 0..STATE_SIZE {
