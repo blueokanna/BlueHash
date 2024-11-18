@@ -1,4 +1,3 @@
-
 /// Generates LWE noise based on the input data, round number, and secret key.
 /// The noise is designed to enhance resistance against quantum attacks by using
 /// a combination of multiplicative and additive operations, with bit rotations
@@ -16,7 +15,6 @@
 /// # Returns
 ///
 /// A 64-bit unsigned integer representing the generated noise value.
-
 pub fn generate_lwe_noise(input_data: &[u8], round: usize, prime: u64) -> u64 {
     let mut noise = prime;
 

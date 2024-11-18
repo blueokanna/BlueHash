@@ -41,9 +41,9 @@ fn main() {
 ```
 ### You will get output for example code
 ```
-The full 128-bit hash result is: 0x6a2f8f3572697616894a8a0d02eb42f3
-The full 256-bit hash result is: 0xb668bc23ecf63a45071829d992140992985c7323b43387cc617f0c7537764025
-The full 512-bit hash result is: 0x73c2ef6642efeda5bb00b3385b6a644e9791ff29a06c559b4723a76f168312010b8cc657b130b720d77cccad2c2137b2ba5c5efdd817d5d1743b6420d065a29d
+The full 128-bit hash result is: e68e6528271d5623a8e195bb6ac7cff3
+The full 256-bit hash result is: c472cbe52b0f1b44f3aa1cec8d56dc578eb75048be19ca5edc6d349c2b5c7ceb
+The full 512-bit hash result is: 46ae2678b8ad6bf066313512f26ceba12211c6087b9f6d7b6223dbcc18687440699b65b333db95b978aba1440c27b5ad5833bbd796380f66028ffa6a9a44482e
 ```
 
 ## Key Components
