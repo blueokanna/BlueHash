@@ -13,6 +13,8 @@
 
 use crate::noise::generate_lwe_noise;
 
+pub const STATE_SIZE: usize = 25;
+
 pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -> u64 {
     let prime = 0x9e3779b97f4a7c15u64;
     let round_factor = (round as u64).wrapping_add(0xabcdef1234567890);
