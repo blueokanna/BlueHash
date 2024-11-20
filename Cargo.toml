@@ -2,7 +2,7 @@
 name = "BlueHash"
 description = "A highly secure alternative to existing custom digest algorithms."
 authors = ["blueokanna@gmail.com"]
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
