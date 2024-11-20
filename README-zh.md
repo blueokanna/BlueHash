@@ -8,35 +8,37 @@
 
 ## 使用示例
 
-```
-//你需要在 cargo.toml 添加 hex 库才可以打印出最后的哈希值, hex = "0.4.3"
-extern crate hex;
-
+```rust
 fn main() {
-    let key: u64 = 0x1234567890abcdef;
-    let data = b"Hello, world! This is a test message for BlueHash.";
+    // 测试数据
+    let test_data = b"Hello, world! This is a test message for BlueHash";
 
-    // Create a 128-bit BlueHash instance
-    let hash_algorithm_128 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit128, key);
-    let mut hasher_128 = hash_algorithm_128;
-    hasher_128.update(data);
-    let hash_result_128 = hasher_128.finalize();
+    // 初始化 BlueHash128 哈希器
+    let mut hasher128 = BlueHash128::new(DigestSize::Bit128);
+    hasher128.update(test_data);
+    let result128 = hasher128.finalize();
+    println!("BlueHash128 Result: {}", to_hex_string(&result128));
 
-    // Create a 256-bit BlueHash instance
-    let hash_algorithm_256 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit256, key);
-    let mut hasher_256 = hash_algorithm_256;
-    hasher_256.update(data);
-    let hash_result_256 = hasher_256.finalize();
+    // 初始化 BlueHash256 哈希器
+    let mut hasher256 = BlueHash256::new(DigestSize::Bit256);
+    hasher256.update(test_data);
+    let result256 = hasher256.finalize();
+    println!("BlueHash256 Result: {}", to_hex_string(&result256));
 
-    // Create a 512-bit BlueHash instance
-    let hash_algorithm_512 = BlueHash::BlueHash::new(BlueHash::DigestSize::Bit512, key);
-    let mut hasher_512 = hash_algorithm_512;
-    hasher_512.update(data);
-    let hash_result_512 = hasher_512.finalize();
+    // 初始化 BlueHash512 哈希器
+    let mut hasher512 = BlueHash512::new(DigestSize::Bit512);
+    hasher512.update(test_data);
+    let result512 = hasher512.finalize();
+    println!("BlueHash512 Result: {}", to_hex_string(&result512));
+}
 
-    println!("The full 128-bit hash result is: 0x{}", hex::encode(hash_result_128));
-    println!("The full 256-bit hash result is: 0x{}", hex::encode(hash_result_256));
-    println!("The full 512-bit hash result is: 0x{}", hex::encode(hash_result_512));
+/// 将字节数组转换为十六进制字符串
+fn to_hex_string(bytes: &[u8]) -> String {
+    let mut hex = String::new();
+    for byte in bytes {
+        write!(&mut hex, "{:02x}", byte).unwrap();
+    }
+    hex
 }
 ```
 ### 你会得到输出结果如下：
