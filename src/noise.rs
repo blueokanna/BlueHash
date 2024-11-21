@@ -28,7 +28,7 @@ pub fn generate_lwe_noise(input_data: &[u8], round: usize, prime: u64) -> u64 {
 
     // Iterate over input_data, applying secure operations to generate noise
     for (i, &byte) in input_data.iter().enumerate() {
-        let multiplied = (byte as u64).wrapping_mul((i.wrapping_add(1)) as u64); // Avoid zero multiplication
+        let multiplied = (byte as u64).wrapping_mul(i.wrapping_add(1) as u64); // Avoid zero multiplication
         noise = noise.wrapping_add(multiplied);
         noise = noise.rotate_left(7); // Distribute noise with rotations
     }

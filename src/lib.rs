@@ -1,26 +1,26 @@
 //! BlueHash: A cryptographic hash function with quantum-resistant features.
 //!
-//! This library provides the implementation of the BlueHash algorithm, designed to
-//! resist quantum attacks while maintaining high security. It includes state manipulation,
-//! constant generation, and noise-based perturbations inspired by lattice-based cryptography.
+//! This library implements the BlueHash algorithm, designed to resist quantum attacks
+//! while maintaining high security. It includes state manipulation, constant generation,
+//! and noise-based perturbations inspired by lattice-based cryptography.
+//!
 //! Full details and source code: https://github.com/blueokanna/BlueHash.
 //!
-//! # BlueHash Usage
+//! # BlueHash Usage Example (BlueHash128)
 //!
 //! ```rust
-//! use BlueHash::{BlueHash128, BlueHash256, BlueHash512, DigestSize};
-//! use std::fmt::Write;
-//!
+//! use bluehash::BlueHashCore;
+//! use bluehash::DigestSize;
+//! use bluehash::Digest;
 //! fn main() {
-//!     use BlueHash::Digest;
 //!     let test_data = b"Hello, world! This is a test message for BlueHash";
-//!
-//!     let mut hasher128 = BlueHash128::new(DigestSize::Bit128);
+//!     let mut hasher128 = BlueHashCore::new(DigestSize::Bit128);
 //!     hasher128.update(test_data);
 //!     let result128 = hasher128.finalize();
 //!     println!("BlueHash128 Result: {}", to_hex_string(&result128));
 //! }
 //!
+//! // Helper function to convert bytes to a hexadecimal string
 //! fn to_hex_string(bytes: &[u8]) -> String {
 //!     let mut hex = String::new();
 //!     for byte in bytes {
@@ -30,8 +30,8 @@
 //! }
 //! ```
 //!
-//! You may also see [BlueHash][1] readme.
-
+//! You may also refer to the [BlueHash][1] readme for more information.
+//!
 
 pub mod constants;
 pub mod noise;

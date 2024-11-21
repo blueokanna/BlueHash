@@ -5,7 +5,7 @@ use std::time::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rayon::prelude::*;
-use BlueHash::{Digest, DigestSize};
+use bluehash::{Digest, DigestSize,BlueHashCore};
 
 // 并行碰撞测试
 pub fn parallel_collision_test(digest_size: DigestSize, trials: usize, num_threads: usize) -> f64 {
@@ -26,7 +26,7 @@ pub fn parallel_collision_test(digest_size: DigestSize, trials: usize, num_threa
 
             for _ in 0..trials_per_thread {
                 let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-                let mut hash = BlueHash::BlueHashCore::new(digest_size);
+                let mut hash = BlueHashCore::new(digest_size);
                 hash.update(&data);
                 let result = hash.finalize();
 
@@ -57,7 +57,7 @@ pub fn differential_attack_test(digest_size: DigestSize, trials: usize) -> f64 {
     let avalanche_effects: Vec<f64> = (0..trials).into_par_iter().map(|_| {
         let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut hash = BlueHashCore::new(digest_size);
         hash.update(&data);
         let original_hash = hash.finalize();
 
@@ -69,7 +69,7 @@ pub fn differential_attack_test(digest_size: DigestSize, trials: usize) -> f64 {
             _ => {}
         }
 
-        let mut modified_hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut modified_hash = BlueHashCore::new(digest_size);
         modified_hash.update(&modified_data);
         let modified_result = modified_hash.finalize();
 
@@ -87,14 +87,14 @@ pub fn second_preimage_attack(digest_size: DigestSize, trials: usize) -> f64 {
     (0..trials).into_par_iter().map(|_| {
         let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut hash = BlueHashCore::new(digest_size);
         hash.update(&data);
         let original_hash = hash.finalize();
 
         let mut second_data = data.clone();
         second_data[0] ^= 0x01;
 
-        let mut second_hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut second_hash = BlueHashCore::new(digest_size);
         second_hash.update(&second_data);
         let second_hash_result = second_hash.finalize();
 
@@ -107,12 +107,12 @@ pub fn forward_security_test(digest_size: DigestSize, trials: usize) -> f64 {
     (0..trials).into_par_iter().map(|_| {
         let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut hash = BlueHashCore::new(digest_size);
         hash.update(&data);
         let hash_result = hash.finalize();
 
         let guess: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut guess_hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut guess_hash = BlueHashCore::new(digest_size);
         guess_hash.update(&guess);
         let guess_result = guess_hash.finalize();
 
@@ -125,7 +125,7 @@ pub fn birthday_attack(digest_size: DigestSize, trials: usize) -> f64 {
     (0..trials).into_par_iter().map(|_| {
         let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut hash = BlueHashCore::new(digest_size);
         hash.update(&data);
         let result = hash.finalize();
 
@@ -139,7 +139,7 @@ pub fn length_extension_attack(digest_size: DigestSize, trials: usize) -> f64 {
     (0..trials).into_par_iter().map(|_| {
         let mut rng = rand::thread_rng();
         let data: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
-        let mut hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut hash = BlueHashCore::new(digest_size);
         hash.update(&data);
         let original_hash = hash.finalize();
 
@@ -147,7 +147,7 @@ pub fn length_extension_attack(digest_size: DigestSize, trials: usize) -> f64 {
         let mut attack_data = data.clone();
         attack_data.extend(extra_data.clone());
 
-        let mut attack_hash = BlueHash::BlueHashCore::new(digest_size);
+        let mut attack_hash = BlueHashCore::new(digest_size);
         attack_hash.update(&attack_data);
         let attack_result = attack_hash.finalize();
 
@@ -161,7 +161,7 @@ pub fn bench_bluehash(c: &mut Criterion) {
     // 测试 BlueHash 不同摘要大小的性能
     c.bench_function("BlueHash 128-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::BlueHashCore::new(DigestSize::Bit128);
+            let mut hash = BlueHashCore::new(DigestSize::Bit128);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -169,7 +169,7 @@ pub fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 256-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::BlueHashCore::new(DigestSize::Bit256);
+            let mut hash = BlueHashCore::new(DigestSize::Bit256);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });
@@ -177,7 +177,7 @@ pub fn bench_bluehash(c: &mut Criterion) {
 
     c.bench_function("BlueHash 512-bit", |b| {
         b.iter(|| {
-            let mut hash = BlueHash::BlueHashCore::new(DigestSize::Bit512);
+            let mut hash = BlueHashCore::new(DigestSize::Bit512);
             hash.update(black_box(data));
             black_box(hash.finalize());
         });

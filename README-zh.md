@@ -9,24 +9,26 @@
 ## 使用示例
 
 ```rust
+use std::fmt::Write;
+use bluehash::{BlueHashCore, Digest, DigestSize};
 fn main() {
     // 测试数据
     let test_data = b"Hello, world! This is a test message for BlueHash";
 
     // 初始化 BlueHash128 哈希器
-    let mut hasher128 = BlueHash128::new(DigestSize::Bit128);
+    let mut hasher128 = BlueHashCore::new(DigestSize::Bit128);
     hasher128.update(test_data);
     let result128 = hasher128.finalize();
     println!("BlueHash128 Result: {}", to_hex_string(&result128));
 
     // 初始化 BlueHash256 哈希器
-    let mut hasher256 = BlueHash256::new(DigestSize::Bit256);
+    let mut hasher256 = BlueHashCore::new(DigestSize::Bit256);
     hasher256.update(test_data);
     let result256 = hasher256.finalize();
     println!("BlueHash256 Result: {}", to_hex_string(&result256));
 
     // 初始化 BlueHash512 哈希器
-    let mut hasher512 = BlueHash512::new(DigestSize::Bit512);
+    let mut hasher512 = BlueHashCore::new(DigestSize::Bit512);
     hasher512.update(test_data);
     let result512 = hasher512.finalize();
     println!("BlueHash512 Result: {}", to_hex_string(&result512));
@@ -43,9 +45,9 @@ fn to_hex_string(bytes: &[u8]) -> String {
 ```
 ### 你会得到输出结果如下：
 ```
-The full 128-bit hash result is: e68e6528271d5623a8e195bb6ac7cff3
-The full 256-bit hash result is: c472cbe52b0f1b44f3aa1cec8d56dc578eb75048be19ca5edc6d349c2b5c7ceb
-The full 512-bit hash result is: 46ae2678b8ad6bf066313512f26ceba12211c6087b9f6d7b6223dbcc18687440699b65b333db95b978aba1440c27b5ad5833bbd796380f66028ffa6a9a44482e
+BlueHash128 Result: 5e2bf33d152fd49dcd27d943ee99dc5f
+BlueHash256 Result: d39c54a9c538b1372420c11b01a5c7b224eefd02a3390b7bcb86bf1a99d4b73e
+BlueHash512 Result: ba0951d578a9c92c6296d620b0a5a8a7b2557d8d28201b14b61603e850e94b71fe6e7922b9aa4d0eb4c184c0c3c26196b79a67005ee04539f79c14b1fb1d47e5
 ```
 
 ## 关键组件
