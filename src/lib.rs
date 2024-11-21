@@ -12,6 +12,7 @@
 //! use BlueHash::BlueHashCore;
 //! use BlueHash::DigestSize;
 //! use BlueHash::Digest;
+//! use std::fmt::Write;
 //! fn main() {
 //!     let test_data = b"Hello, world! This is a test message for BlueHash";
 //!     let mut hasher128 = BlueHashCore::new(DigestSize::Bit128);
