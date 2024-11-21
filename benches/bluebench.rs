@@ -5,7 +5,7 @@ use std::time::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rayon::prelude::*;
-use bluehash::{Digest, DigestSize,BlueHashCore};
+use BlueHash::{Digest, DigestSize,BlueHashCore};
 
 // 并行碰撞测试
 pub fn parallel_collision_test(digest_size: DigestSize, trials: usize, num_threads: usize) -> f64 {

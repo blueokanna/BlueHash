@@ -10,7 +10,7 @@
 
 ```rust
 use std::fmt::Write;
-use bluehash::{BlueHashCore, Digest, DigestSize};
+use BlueHash::{BlueHashCore, Digest, DigestSize};
 fn main() {
     // 测试数据
     let test_data = b"Hello, world! This is a test message for BlueHash";

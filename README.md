@@ -10,7 +10,7 @@ This documentation provides an explanation of the algorithm's core components, i
 
 ```rust
 use std::fmt::Write;
-use bluehash::{BlueHashCore, Digest, DigestSize};
+use BlueHash::{BlueHashCore, Digest, DigestSize};
 
 fn main() {
    // Test Data
