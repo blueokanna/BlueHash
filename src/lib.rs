@@ -3,33 +3,35 @@
 //! This library provides the implementation of the BlueHash algorithm, designed to
 //! resist quantum attacks while maintaining high security. It includes state manipulation,
 //! constant generation, and noise-based perturbations inspired by lattice-based cryptography.
-//!
 //! Full details and source code: https://github.com/blueokanna/BlueHash.
-
+//!
 //! # BlueHash Usage
 //!
-/// ```rust
-/// use BlueHash::{BlueHash128, BlueHash256, BlueHash512, DigestSize};
-/// use std::fmt::Write;
-///
-/// fn main() {
-///     use BlueHash::Digest;
-/// let test_data = b"Hello, BlueHash!";
-///
-///     let mut hasher128 = BlueHash128::new(DigestSize::Bit128);
-///     hasher128.update(test_data);
-///     let result128 = hasher128.finalize();
-///     println!("BlueHash128 Result: {}", to_hex_string(&result128));
-/// }
-///
-/// fn to_hex_string(bytes: &[u8]) -> String {
-///     let mut hex = String::new();
-///     for byte in bytes {
-///         write!(&mut hex, "{:02x}", byte).unwrap();
-///     }
-///     hex
-/// }
-/// ```
+//! ```rust
+//! use BlueHash::{BlueHash128, BlueHash256, BlueHash512, DigestSize};
+//! use std::fmt::Write;
+//!
+//! fn main() {
+//!     use BlueHash::Digest;
+//!     let test_data = b"Hello, world! This is a test message for BlueHash";
+//!
+//!     let mut hasher128 = BlueHash128::new(DigestSize::Bit128);
+//!     hasher128.update(test_data);
+//!     let result128 = hasher128.finalize();
+//!     println!("BlueHash128 Result: {}", to_hex_string(&result128));
+//! }
+//!
+//! fn to_hex_string(bytes: &[u8]) -> String {
+//!     let mut hex = String::new();
+//!     for byte in bytes {
+//!         write!(&mut hex, "{:02x}", byte).unwrap();
+//!     }
+//!     hex
+//! }
+//! ```
+//!
+//! You may also see [BlueHash][1] readme.
+
 
 pub mod constants;
 pub mod noise;
@@ -86,7 +88,7 @@ pub trait VariableDigest: Digest {
 #[derive(Debug, Clone)]
 pub struct BlueHashCore {
     pub state: [u64; STATE_SIZE],
-    round_count: usize,
+    pub round_count: usize,
     pub digest_size: DigestSize,
 }
 

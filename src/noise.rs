@@ -15,19 +15,25 @@
 /// # Returns
 ///
 /// A 64-bit unsigned integer representing the generated noise value.
+/// Generates LWE noise based on input data, round, and a prime number.
+/// This function introduces non-linear operations to improve security.
 pub fn generate_lwe_noise(input_data: &[u8], round: usize, prime: u64) -> u64 {
     let mut noise = prime;
 
-    // Iterate over input_data, multiply each byte by the index and add it to noise
-    for (i, byte) in input_data.iter().enumerate() {
-        // Use wrapping_mul and wrapping_add to ensure no overflow
-        let multiplied = (*byte as u64).wrapping_mul(i as u64);
-        noise = noise.wrapping_add(multiplied);
-        noise = noise.rotate_left(7); // Shift operations are used to distribute noise
+    // Validate input to prevent issues with empty data
+    if input_data.is_empty() {
+        noise ^= round as u64; // Add round as fallback noise
+        return noise.rotate_left((round % 64) as u32);
     }
 
-    noise ^= round as u64;
-    noise = noise.rotate_left((round % 64) as u32); // Round shift operation
+    // Iterate over input_data, applying secure operations to generate noise
+    for (i, &byte) in input_data.iter().enumerate() {
+        let multiplied = (byte as u64).wrapping_mul((i.wrapping_add(1)) as u64); // Avoid zero multiplication
+        noise = noise.wrapping_add(multiplied);
+        noise = noise.rotate_left(7); // Distribute noise with rotations
+    }
 
-    noise
+    // Add round-specific noise and apply final rotation
+    noise ^= round as u64;
+    noise.rotate_left((round % 64) as u32)
 }

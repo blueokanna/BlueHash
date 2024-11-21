@@ -15,20 +15,24 @@ use crate::noise::generate_lwe_noise;
 
 pub const STATE_SIZE: usize = 25;
 
+/// Generates constants for a specific round, based on input data and hash length.
+/// The function uses noise generation and bitwise rotation to produce a secure constant.
 pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -> u64 {
     let prime = 0x9e3779b97f4a7c15u64;
     let round_factor = (round as u64).wrapping_add(0xabcdef1234567890);
     let extra_prime = 0x7fffffffffffffffu64;
+
+    // Generate noise based on input data and round
     let noise = generate_lwe_noise(input_data, round, prime);
 
-    // Calculate the rotation value in advance
+    // Precompute rotation values to reduce redundant calculations
     let round_factor_rot_left = round_factor.rotate_left(32);
     let round_factor_rot_right = round_factor.rotate_right(16);
     let rotated_prime = prime.rotate_left((round % 64) as u32);
     let extra_prime_rot_left = extra_prime.rotate_left((round % 32) as u32);
     let noise_rot_left = noise.rotate_left(8);
 
-    // Reduce double counting by using already calculated rotation values
+    // Combine all components securely
     rotated_prime
         .wrapping_mul(round_factor_rot_left)
         .wrapping_add(round_factor_rot_right)
@@ -36,4 +40,3 @@ pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -
         .wrapping_add(noise_rot_left)
         .wrapping_add(hash_length as u64)
 }
-
