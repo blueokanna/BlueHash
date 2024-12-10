@@ -2,7 +2,8 @@
 /// and a secret key. This constant is used for permutations in the hash algorithm.
 /// The generation process is designed to introduce enough randomness and complexity,
 /// making it resistant to both classical and quantum attacks.
-///
+// <Author: BlueOkanna>
+// <Email: blueokanna@gmail.com>
 /// # Arguments
 /// * `round` - The current round number in the hash algorithm.
 /// * `input_data` - The input data used to generate the noise.
@@ -10,33 +11,74 @@
 ///
 /// # Returns
 /// A 64-bit unsigned integer representing the generated constant.
-
+use std::ops::{BitAnd, BitXor, Shl};
 use crate::noise::generate_lwe_noise;
 
-pub const STATE_SIZE: usize = 25;
+/// Secure combination with optimizations (nonlinear perturbations)
+macro_rules! secure_combine {
+    ($val1:expr, $val2:expr, $prime:expr, $round:expr) => {{
+        let mix1 = $val1.rotate_left(($round % 64) as u32);
+        let mix2 = $val2.rotate_right(($round % 32) as u32);
+        let nonlinear = (mix1.wrapping_mul(0x53FA0915)).wrapping_add(mix2 ^ $prime);
+        nonlinear ^ ((nonlinear & 0x40490FDB) << 5) ^ ((nonlinear & 0x7F4A7C15) >> 7)
+    }};
+}
 
-/// Generates constants for a specific round, based on input data and hash length.
-/// The function uses noise generation and bitwise rotation to produce a secure constant.
-pub fn generate_constants(round: usize, input_data: &[u8], hash_length: usize) -> u64 {
-    let prime = 0x9e3779b97f4a7c15u64;
-    let round_factor = (round as u64).wrapping_add(0xabcdef1234567890);
-    let extra_prime = 0x7fffffffffffffffu64;
+/// Precompute rotation values once for reuse
+macro_rules! precompute_rotation {
+    ($value:expr, $shift_left:expr, $shift_right:expr) => {{
+        let rotated_left = $value.rotate_left($shift_left);
+        let rotated_right = $value.rotate_right($shift_right);
+        (rotated_left, rotated_right)
+    }};
+}
 
-    // Generate noise based on input data and round
-    let noise = generate_lwe_noise(input_data, round, prime);
+/// Generate constant functions, support generics and high safety
+pub fn generate_constants<T>(round: usize, input_data: &[T], hash_length: usize) -> u64
+where
+    T: Copy
+    + Into<u64>
+    + BitXor<Output = T>
+    + Shl<u32, Output = T>
+    + BitAnd<Output = T>
+    + Send
+    + Sync,
+{
+    let prime = 0x9E3779B97F4A7C15u64;
+    let round_factor = (round as u64).wrapping_add(0xABCDEF1234567890);
+    let extra_prime = 0x7FFFFFFFFFFFFFFFu64;
 
-    // Precompute rotation values to reduce redundant calculations
-    let round_factor_rot_left = round_factor.rotate_left(32);
-    let round_factor_rot_right = round_factor.rotate_right(16);
-    let rotated_prime = prime.rotate_left((round % 64) as u32);
-    let extra_prime_rot_left = extra_prime.rotate_left((round % 32) as u32);
-    let noise_rot_left = noise.rotate_left(8);
+    // Precompute rotation values once for the round
+    let (round_factor_rot_left, round_factor_rot_right) = precompute_rotation!(round_factor, 32, 16);
+    let (rotated_prime, _) = precompute_rotation!(prime, (round % 64) as u32, 0);
+    let (extra_prime_rot_left, _) = precompute_rotation!(extra_prime, (round % 32) as u32, 0);
 
-    // Combine all components securely
-    rotated_prime
-        .wrapping_mul(round_factor_rot_left)
-        .wrapping_add(round_factor_rot_right)
-        .wrapping_add(extra_prime_rot_left)
-        .wrapping_add(noise_rot_left)
-        .wrapping_add(hash_length as u64)
+    // Use optimized LWE noise generation
+    let noise_rot_left = generate_lwe_noise(input_data, round, prime).rotate_left(8);
+
+    // Combine the values with optimized transformations
+    secure_combine!(
+        rotated_prime
+            .wrapping_mul(round_factor_rot_left)
+            .wrapping_add(round_factor_rot_right)
+            .wrapping_add(extra_prime_rot_left),
+        noise_rot_left.wrapping_add(hash_length as u64),
+        prime,
+        round
+    )
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_constants() {
+        let data: Vec<u8> = vec![0x12, 0x34, 0x56, 0x78];
+        let result = generate_constants(5, &data, 32);
+        println!("Generated Constant: {:#x}", result);
+
+        assert_ne!(result, 0); // Check if the result is non-zero
+    }
 }

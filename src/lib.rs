@@ -1,5 +1,6 @@
 //! BlueHash: A cryptographic hash function with quantum-resistant features.
-//!
+// <Author: BlueOkanna>
+// <Email: blueokanna@gmail.com>
 //! This library implements the BlueHash algorithm, designed to resist quantum attacks
 //! while maintaining high security. It includes state manipulation, constant generation,
 //! and noise-based perturbations inspired by lattice-based cryptography.
@@ -9,12 +10,13 @@
 //! # BlueHash Usage Example (BlueHash128)
 //!
 //! ```rust
-//! use BlueHash::BlueHashCore;
 //! use BlueHash::DigestSize;
-//! use BlueHash::Digest;
 //! use std::fmt::Write;
+//! use BlueHash::Digest;
+//! use BlueHash::BlueHashCore;
+//!
 //! fn main() {
-//!     let test_data = b"Hello, world! This is a test message for BlueHash";
+//! let test_data = b"Hello, world! This is a test message for BlueHash";
 //!     let mut hasher128 = BlueHashCore::new(DigestSize::Bit128);
 //!     hasher128.update(test_data);
 //!     let result128 = hasher128.finalize();
@@ -31,22 +33,30 @@
 //! }
 //! ```
 //!
-//! You may also refer to the [BlueHash][1] readme for more information.
+//! You may also refer to the BlueHash readme for more information.
 //!
+//! BlueHash: A cryptographic hash function with quantum-resistant features.
+//!
+//! This library implements the BlueHash algorithm, designed to resist quantum attacks
+//! while maintaining high security. It includes state manipulation, constant generation,
+//! and noise-based perturbations inspired by lattice-based cryptography.
 
-pub mod constants;
-pub mod noise;
-pub mod utils;
+mod constants;
+mod noise;
+mod utils;
 
 pub use constants::generate_constants;
 pub use noise::generate_lwe_noise;
 pub use utils::to_u64;
 
+use num_cpus;
+use rayon::prelude::*;
+use rayon::ThreadPoolBuilder;
 use std::fmt;
-use crate::constants::STATE_SIZE;
+use std::sync::{Arc, RwLock}; // 确保引用了 RwLock
 
 /// Represents the available digest sizes for BlueHash.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DigestSize {
     Bit128,
     Bit256,
@@ -54,8 +64,7 @@ pub enum DigestSize {
 }
 
 impl DigestSize {
-    /// Returns the number of rounds based on the digest size.
-    pub fn round_count(&self) -> usize {
+    fn round_count(&self) -> usize {
         match self {
             DigestSize::Bit128 => 56,
             DigestSize::Bit256 => 64,
@@ -63,140 +72,220 @@ impl DigestSize {
         }
     }
 
-    /// Returns the output length of the digest in bytes.
-    pub fn digest_length(&self) -> usize {
+    fn digest_length(&self) -> usize {
         match self {
             DigestSize::Bit128 => 16,
             DigestSize::Bit256 => 32,
             DigestSize::Bit512 => 64,
         }
     }
+
+    fn state_size(&self) -> usize {
+        match self {
+            DigestSize::Bit128 => 25,
+            DigestSize::Bit256 => 32,
+            DigestSize::Bit512 => 40,
+        }
+    }
 }
 
-/// Implements the `Digest` trait for cryptographic hash functions with fixed output size.
+/// Helper function to perform the common permutation logic
+/// Optimized permutation using SIMD when available
+pub fn permute_core(
+    state: Arc<RwLock<Vec<u64>>>, // 使用 Arc<RwLock<Vec<u64>>> 来共享和保护状态
+    input_data: &[u8],
+    round_count: usize,
+    state_size: usize,
+    digest_size: DigestSize,
+) -> Arc<RwLock<Vec<u64>>> {
+    // 返回一个 Arc<RwLock<Vec<u64>>> 作为新状态
+    let thread_pool = ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get() / 2)
+        .build()
+        .unwrap();
+
+    let new_state = Arc::new(RwLock::new(vec![0u64; state_size]));
+
+    thread_pool.install(|| {
+        (0..round_count).for_each(|round| {
+            let constant = generate_constants(round, input_data, digest_size.digest_length());
+            let new_state = Arc::clone(&new_state);
+
+            (0..state_size).into_par_iter().for_each(|i| {
+                // 使用 RwLock 的 read 方法来获取共享数据
+                let local_vars = {
+                    let state = state.read().unwrap(); // 获取对状态的读取锁
+                    [
+                        state[(i + 1) % state_size],
+                        state[(i + 2) % state_size],
+                        state[(i + 3) % state_size],
+                    ]
+                };
+
+                let new_value = {
+                    let state = state.read().unwrap(); // 获取对状态的读取锁
+                    state[i]
+                        .wrapping_add(constant)
+                        .wrapping_add(local_vars[0])
+                        .rotate_left(29)
+                        .wrapping_add(local_vars[1] & local_vars[2].rotate_right(17))
+                        .rotate_left(23)
+                };
+
+                // 使用 RwLock 的 write 方法来更新数据
+                let mut new_state_guard = new_state.write().unwrap();
+                new_state_guard[i] = new_value;
+            });
+        });
+    });
+
+    Arc::clone(&new_state) // 返回 Arc<RwLock<Vec<u64>>> 新状态
+}
+
+/// Macro to define the architecture-specific permute function
+macro_rules! define_permute {
+    ($arch:literal, $target_feature:expr, $feature:ident) => {
+        #[cfg(target_arch = $arch)]
+        #[target_feature(enable = $target_feature)] // Enable target feature for specific architecture
+        pub unsafe fn permute(
+            state: Arc<RwLock<Vec<u64>>>, // 参数类型改为 Arc<RwLock<Vec<u64>>>
+            input_data: &[u8],
+            round_count: usize,
+            state_size: usize,
+            digest_size: DigestSize,
+        ) {
+            permute_core(state, input_data, round_count, state_size, digest_size);
+        }
+    };
+}
+
+/// Core structure for the BlueHash algorithm.
+#[derive(Debug, Clone)]
+pub struct BlueHashCore {
+    state: Arc<RwLock<Vec<u64>>>, // 使用 Arc<RwLock<Vec<u64>>> 来保护状态
+    round_count: usize,
+    digest_size: DigestSize,
+}
+
+impl BlueHashCore {
+    /// Creates a new instance of BlueHashCore.
+    pub fn new(digest_size: DigestSize) -> Self {
+        let state_size = digest_size.state_size();
+        Self {
+            state: Arc::new(RwLock::new(vec![0u64; state_size])), // 初始化 RwLock
+            round_count: digest_size.round_count(),
+            digest_size,
+        }
+    }
+
+    // For x86_64 architecture using AVX2
+    define_permute!("x86_64", "avx2", avx2);
+
+    // For ARM 64-bit architecture using NEON
+    define_permute!("aarch64", "neon", neon);
+}
+
+/// Trait defining a cryptographic hash function.
 pub trait Digest {
     fn update(&mut self, data: &[u8]);
     fn finalize(&self) -> Vec<u8>;
     fn reset(&mut self);
 }
 
-/// Implements the `VariableDigest` trait for hash functions with variable output size.
-pub trait VariableDigest: Digest {
-    fn new_variable(output_size: usize) -> Self;
-}
-
-/// BlueHash core structure implementing the cryptographic hash algorithm.
-#[derive(Debug, Clone)]
-pub struct BlueHashCore {
-    pub state: [u64; STATE_SIZE],
-    pub round_count: usize,
-    pub digest_size: DigestSize,
-}
-
-impl BlueHashCore {
-    pub fn new(digest_size: DigestSize) -> Self {
-        Self {
-            state: [0u64; STATE_SIZE],
-            round_count: digest_size.round_count(),
-            digest_size,
-        }
-    }
-
-    pub fn permute(&mut self, input_data: &[u8]) {
-        let mut tmp_state = [0u64; STATE_SIZE];
-        for round in 0..self.round_count {
-            let constant = generate_constants(round, input_data, self.round_count);
-            for i in 0..STATE_SIZE {
-                let local_vars = [
-                    self.state[(i + 1) % STATE_SIZE],
-                    self.state[(i + 2) % STATE_SIZE],
-                    self.state[(i + 3) % STATE_SIZE],
-                    self.state[(i + 4) % STATE_SIZE],
-                    self.state[(i + 5) % STATE_SIZE],
-                ];
-                tmp_state[i] = self.state[i]
-                    .wrapping_add(constant)
-                    .wrapping_add(local_vars[2])
-                    .rotate_left(29)
-                    .wrapping_add(local_vars[0] & local_vars[1])
-                    .wrapping_add(local_vars[3].rotate_right(17))
-                    .rotate_left(23);
-            }
-            self.state.copy_from_slice(&tmp_state);
-        }
-    }
-}
-
 impl Digest for BlueHashCore {
     fn update(&mut self, data: &[u8]) {
         for chunk in data.chunks(8) {
-            let block = to_u64(chunk);
-            self.state[0] ^= block;
-            self.permute(data);
+            let block = chunk
+                .iter()
+                .fold(0u64, |acc, &byte| (acc << 8) | (byte as u64));
+            // 使用 write() 锁定 state 进行修改
+            let mut state_guard = self.state.write().unwrap();
+            state_guard[0] ^= block;
         }
+
+        // 克隆 state 的数据并传递到 permute_core
+        let state_clone = Arc::clone(&self.state); // 传递 Arc<RwLock<Vec<u64>>> 给 permute_core
+        let state_size = self.digest_size.state_size();
+        let new_state = permute_core(
+            state_clone, // 使用 Arc<RwLock<Vec<u64>>> 传递
+            data,
+            self.round_count,
+            state_size,
+            self.digest_size,
+        );
+
+        // 更新状态
+        let mut state_guard = self.state.write().unwrap();
+        let new_state_guard = new_state.read().unwrap();
+        state_guard.copy_from_slice(&new_state_guard);
     }
 
     fn finalize(&self) -> Vec<u8> {
-        let digest_size = self.digest_size.digest_length();
-        let mut result = vec![0u8; digest_size];
-        let mut output_idx = 0;
+        let digest_length = self.digest_size.digest_length();
+        let mut result = vec![0u8; digest_length];
+        let state_size = self.digest_size.state_size();
 
-        while output_idx < digest_size {
-            let idx = (output_idx / 8) % STATE_SIZE;
-            let val = self.state[idx];
-            let bytes = val.to_be_bytes();
-
-            let copy_len = usize::min(8, digest_size - output_idx);
-            result[output_idx..output_idx + copy_len].copy_from_slice(&bytes[..copy_len]);
-            output_idx += copy_len;
+        for (i, chunk) in result.chunks_mut(8).enumerate() {
+            let idx = i % state_size;
+            let bytes = self.state.read().unwrap()[idx].to_be_bytes();
+            chunk.copy_from_slice(&bytes[..chunk.len()]);
         }
 
         result
     }
 
     fn reset(&mut self) {
-        self.state = [0u64; STATE_SIZE];
+        let mut state_guard = self.state.write().unwrap();
+        state_guard.fill(0);
     }
 }
 
-/// Aliases for fixed-size BlueHash instances.
-pub type BlueHash128 = BlueHashCore;
-pub type BlueHash256 = BlueHashCore;
-pub type BlueHash512 = BlueHashCore;
-
-/// Implements the `fmt::Display` trait for BlueHash.
 impl fmt::Display for BlueHashCore {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "BlueHash(digest_size: {:?})", self.digest_size)
+        write!(f, "BlueHash(DigestSize: {:?})", self.digest_size)
     }
 }
 
-/// Test module for the BlueHash implementation.
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
     #[test]
     fn test_bluehash128() {
-        let mut hasher = BlueHash128::new(DigestSize::Bit128);
-        hasher.update(b"Test message for BlueHash");
+        let mut hasher = BlueHashCore::new(DigestSize::Bit128);
+        hasher.update(b"Hello, world! This is a test message for BlueHash");
         let result = hasher.finalize();
         assert_eq!(result.len(), 16);
     }
 
     #[test]
     fn test_bluehash256() {
-        let mut hasher = BlueHash256::new(DigestSize::Bit256);
-        hasher.update(b"Another test for BlueHash");
+        let mut hasher = BlueHashCore::new(DigestSize::Bit256);
+        hasher.update(b"Hello, world! This is a test message for BlueHash");
         let result = hasher.finalize();
         assert_eq!(result.len(), 32);
     }
 
     #[test]
     fn test_bluehash512() {
-        let mut hasher = BlueHash512::new(DigestSize::Bit512);
-        hasher.update(b"Final test for BlueHash");
+        let mut hasher = BlueHashCore::new(DigestSize::Bit512);
+        hasher.update(b"Hello, world! This is a test message for BlueHash");
         let result = hasher.finalize();
         assert_eq!(result.len(), 64);
+    }
+
+    #[test]
+    fn test_reset() {
+        let mut hasher = BlueHashCore::new(DigestSize::Bit256);
+        hasher.update(b"Hello, world! This is a test message for BlueHash");
+        hasher.reset();
+        let result = hasher.finalize();
+        assert_eq!(result, vec![0u8; 32]);
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        assert_eq!(DigestSize::Bit128, DigestSize::Bit128);
+        assert_ne!(DigestSize::Bit128, DigestSize::Bit256);
     }
 }
