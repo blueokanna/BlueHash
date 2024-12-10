@@ -14,7 +14,7 @@ use BlueHash::{BlueHashCore, Digest, DigestSize};
 
 fn main() {
    // Test Data
-   let test_data = b"Hello, world! This is a test message for BlueHash";
+   let test_data = b"Hello, world! This is a test message for BlueHash!";
 
    // Initialize the BlueHash128 hasher
    let mut hasher128 = BlueHashCore::new(DigestSize::Bit128);
