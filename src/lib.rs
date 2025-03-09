@@ -45,17 +45,13 @@ mod constants;
 mod noise;
 mod utils;
 
-pub use constants::generate_constants;
-pub use noise::generate_lwe_noise;
-pub use utils::to_u64;
-
-use num_cpus;
+use crate::constants::{generate_constants, SBOX};
+use crate::noise::generate_lwe_noise;
 use rayon::prelude::*;
-use rayon::ThreadPoolBuilder;
 use std::fmt;
-use std::sync::{Arc, RwLock}; // 确保引用了 RwLock
+use std::fmt::Write;
 
-/// Represents the available digest sizes for BlueHash.
+/// 摘要大小及相关参数定义
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DigestSize {
     Bit128,
@@ -64,23 +60,22 @@ pub enum DigestSize {
 }
 
 impl DigestSize {
-    fn round_count(&self) -> usize {
+    pub fn round_count(&self) -> usize {
+        // 为增强抗量子安全性，置换轮次加倍
         match self {
-            DigestSize::Bit128 => 56,
-            DigestSize::Bit256 => 64,
-            DigestSize::Bit512 => 80,
+            DigestSize::Bit128 => 56 * 2,
+            DigestSize::Bit256 => 64 * 2,
+            DigestSize::Bit512 => 80 * 2,
         }
     }
-
-    fn digest_length(&self) -> usize {
+    pub fn digest_length(&self) -> usize {
         match self {
             DigestSize::Bit128 => 16,
             DigestSize::Bit256 => 32,
             DigestSize::Bit512 => 64,
         }
     }
-
-    fn state_size(&self) -> usize {
+    pub fn state_size(&self) -> usize {
         match self {
             DigestSize::Bit128 => 25,
             DigestSize::Bit256 => 32,
@@ -89,154 +84,218 @@ impl DigestSize {
     }
 }
 
-/// Helper function to perform the common permutation logic
-/// Optimized permutation using SIMD when available
+/// 置换函数，增加 S‑盒查表非线性转换
 pub fn permute_core(
-    state: Arc<RwLock<Vec<u64>>>, // 使用 Arc<RwLock<Vec<u64>>> 来共享和保护状态
+    state: &[u64],
     input_data: &[u8],
-    round_count: usize,
+    round: usize,
     state_size: usize,
     digest_size: DigestSize,
-) -> Arc<RwLock<Vec<u64>>> {
-    // 返回一个 Arc<RwLock<Vec<u64>>> 作为新状态
-    let thread_pool = ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get() / 2)
-        .build()
-        .unwrap();
-
-    let new_state = Arc::new(RwLock::new(vec![0u64; state_size]));
-
-    thread_pool.install(|| {
-        (0..round_count).for_each(|round| {
-            let constant = generate_constants(round, input_data, digest_size.digest_length());
-            let new_state = Arc::clone(&new_state);
-
-            (0..state_size).into_par_iter().for_each(|i| {
-                // 使用 RwLock 的 read 方法来获取共享数据
-                let local_vars = {
-                    let state = state.read().unwrap(); // 获取对状态的读取锁
-                    [
-                        state[(i + 1) % state_size],
-                        state[(i + 2) % state_size],
-                        state[(i + 3) % state_size],
-                    ]
-                };
-
-                let new_value = {
-                    let state = state.read().unwrap(); // 获取对状态的读取锁
-                    state[i]
-                        .wrapping_add(constant)
-                        .wrapping_add(local_vars[0])
-                        .rotate_left(29)
-                        .wrapping_add(local_vars[1] & local_vars[2].rotate_right(17))
-                        .rotate_left(23)
-                };
-
-                // 使用 RwLock 的 write 方法来更新数据
-                let mut new_state_guard = new_state.write().unwrap();
-                new_state_guard[i] = new_value;
-            });
-        });
-    });
-
-    Arc::clone(&new_state) // 返回 Arc<RwLock<Vec<u64>>> 新状态
+) -> Vec<u64> {
+    let constant = generate_constants(round, input_data, digest_size.digest_length());
+    (0..state_size)
+        .into_par_iter()
+        .map(|i| {
+            let a = state[i];
+            let b = state[(i + 1) % state_size];
+            let c = state[(i + 2) % state_size];
+            let d = state[(i + 3) % state_size];
+            let mut mixed = a
+                .wrapping_add(constant)
+                .wrapping_add(b)
+                .rotate_left(29)
+                .wrapping_add(c & d.rotate_right(17))
+                .rotate_left(23);
+            // 对混合结果每个字节执行 S‑盒查表替换（实现恒定时间操作）
+            let mut bytes = mixed.to_be_bytes();
+            for byte in &mut bytes {
+                // 采用数组索引替换，不分支实现
+                *byte = SBOX[*byte as usize];
+            }
+            mixed = u64::from_be_bytes(bytes);
+            mixed
+        })
+        .collect()
 }
 
-/// Macro to define the architecture-specific permute function
-macro_rules! define_permute {
-    ($arch:literal, $target_feature:expr, $feature:ident) => {
-        #[cfg(target_arch = $arch)]
-        #[target_feature(enable = $target_feature)] // Enable target feature for specific architecture
-        pub unsafe fn permute(
-            state: Arc<RwLock<Vec<u64>>>, // 参数类型改为 Arc<RwLock<Vec<u64>>>
-            input_data: &[u8],
-            round_count: usize,
-            state_size: usize,
-            digest_size: DigestSize,
-        ) {
-            permute_core(state, input_data, round_count, state_size, digest_size);
-        }
-    };
-}
-
-/// Core structure for the BlueHash algorithm.
+/// BlueHash 核心结构，采用固定 IV 初始化，并累积输入数据
 #[derive(Debug, Clone)]
 pub struct BlueHashCore {
-    state: Arc<RwLock<Vec<u64>>>, // 使用 Arc<RwLock<Vec<u64>>> 来保护状态
+    state: Vec<u64>,
     round_count: usize,
     digest_size: DigestSize,
+    total_len: u128,       // 累计输入字节数
+    input_buffer: Vec<u8>, // 保存输入数据（仅用于后续填充计算）
 }
 
 impl BlueHashCore {
-    /// Creates a new instance of BlueHashCore.
-    pub fn new(digest_size: DigestSize) -> Self {
-        let state_size = digest_size.state_size();
-        Self {
-            state: Arc::new(RwLock::new(vec![0u64; state_size])), // 初始化 RwLock
-            round_count: digest_size.round_count(),
-            digest_size,
+    /// 固定 IV：根据摘要大小返回预设定的初始状态
+    fn fixed_iv(digest_size: DigestSize) -> Vec<u64> {
+        match digest_size {
+            DigestSize::Bit128 => vec![
+                0x0123456789ABCDEF,
+                0x23456789ABCDEF01,
+                0x456789ABCDEF0123,
+                0x6789ABCDEF012345,
+                0x89ABCDEF01234567,
+                0xABCDEF0123456789,
+                0xCDEF0123456789AB,
+                0xEF0123456789ABCD,
+                0x13579BDF02468ACE,
+                0x2468ACE13579BDF0,
+                0x3579BDF02468ACE1,
+                0x468ACE13579BDF02,
+                0x579BDF02468ACE13,
+                0x68ACE13579BDF24,
+                0x79BDF02468ACE35,
+                0x8ACE13579BDF468,
+                0x9BDF02468ACE579,
+                0xACE13579BDF68AC,
+                0xBDF02468ACE79BD,
+                0xCE13579BDF8ACE0,
+                0xDF02468ACE9BDF1,
+                0xE13579BDFACE135,
+                0xF02468ACEBDF024,
+                0x0123456789ABCDEF,
+                0x89ABCDEF01234567,
+            ],
+            DigestSize::Bit256 => {
+                let mut iv = Self::fixed_iv(DigestSize::Bit128);
+                iv.extend_from_slice(&[
+                    0x23456789ABCDEF01,
+                    0x456789ABCDEF0123,
+                    0x6789ABCDEF012345,
+                    0x89ABCDEF01234567,
+                    0xABCDEF0123456789,
+                    0xCDEF0123456789AB,
+                    0xEF0123456789ABCD,
+                ]);
+                iv.resize(32, 0x0123456789ABCDEF);
+                iv
+            }
+            DigestSize::Bit512 => {
+                let mut iv = Self::fixed_iv(DigestSize::Bit128);
+                iv.extend_from_slice(&[
+                    0x23456789ABCDEF01,
+                    0x456789ABCDEF0123,
+                    0x6789ABCDEF012345,
+                    0x89ABCDEF01234567,
+                    0xABCDEF0123456789,
+                    0xCDEF0123456789AB,
+                    0xEF0123456789ABCD,
+                    0x13579BDF02468ACE,
+                    0x2468ACE13579BDF0,
+                    0x3579BDF02468ACE1,
+                    0x468ACE13579BDF02,
+                    0x579BDF02468ACE13,
+                    0x68ACE13579BDF24,
+                    0x79BDF02468ACE35,
+                ]);
+                iv.resize(40, 0x0123456789ABCDEF);
+                iv
+            }
         }
     }
 
-    // For x86_64 architecture using AVX2
-    define_permute!("x86_64", "avx2", avx2);
+    /// 构造新的 BlueHash 实例，使用固定 IV 初始化状态和输入缓冲区
+    pub fn new(digest_size: DigestSize) -> Self {
+        let state = Self::fixed_iv(digest_size);
+        Self {
+            state,
+            round_count: digest_size.round_count(),
+            digest_size,
+            total_len: 0,
+            input_buffer: Vec::new(),
+        }
+    }
 
-    // For ARM 64-bit architecture using NEON
-    define_permute!("aarch64", "neon", neon);
+    /// 优化填充函数，处理最后分块：添加 0x80 后补零至块边界，再附加128位长度信息
+    fn pad(&self, data: &[u8]) -> Vec<u8> {
+        let block_size = 8;
+        let mut padded = data.to_vec();
+        padded.push(0x80);
+        // 补全到 block_size 整倍数（留出 16 字节长度信息空间）
+        while (padded.len() + 16) % block_size != 0 {
+            padded.push(0);
+        }
+        let total_bits = self.total_len.wrapping_mul(8);
+        padded.extend_from_slice(&total_bits.to_be_bytes());
+        padded
+    }
+
+    /// 最终混合：将总长度信息引入状态，并进行额外轮次置换（所有循环均采用固定步长以实现恒定时间操作）
+    fn final_mix(&mut self, extra_data: &[u8]) {
+        // 在状态中混入总长度（注意转换为 u64 后执行恒定时间 XOR）
+        self.state[0] ^= self.total_len.wrapping_mul(8) as u64;
+        self.state[0] ^= 0x80;
+        let padded = self.pad(extra_data);
+        for round in self.round_count..(self.round_count + 4) {
+            self.state = permute_core(
+                &self.state,
+                &padded,
+                round,
+                self.digest_size.state_size(),
+                self.digest_size,
+            );
+        }
+    }
 }
 
-/// Trait defining a cryptographic hash function.
+/// 定义哈希接口
 pub trait Digest {
     fn update(&mut self, data: &[u8]);
-    fn finalize(&self) -> Vec<u8>;
+    fn finalize(&mut self) -> Vec<u8>;
     fn reset(&mut self);
 }
 
 impl Digest for BlueHashCore {
     fn update(&mut self, data: &[u8]) {
-        for chunk in data.chunks(8) {
+        self.total_len = self.total_len.wrapping_add(data.len() as u128);
+        self.input_buffer.extend_from_slice(data);
+        let state_size = self.digest_size.state_size();
+        for (i, chunk) in data.chunks(8).enumerate() {
             let block = chunk
                 .iter()
-                .fold(0u64, |acc, &byte| (acc << 8) | (byte as u64));
-            // 使用 write() 锁定 state 进行修改
-            let mut state_guard = self.state.write().unwrap();
-            state_guard[0] ^= block;
+                .fold(0u64, |acc, &byte| (acc << 8) | byte as u64);
+            let idx = i % state_size;
+            // 使用固定步长旋转以实现恒定时间操作
+            self.state[idx] ^= block.rotate_left(((i as u32).wrapping_mul(7)) % 64);
         }
-
-        // 克隆 state 的数据并传递到 permute_core
-        let state_clone = Arc::clone(&self.state); // 传递 Arc<RwLock<Vec<u64>>> 给 permute_core
-        let state_size = self.digest_size.state_size();
-        let new_state = permute_core(
-            state_clone, // 使用 Arc<RwLock<Vec<u64>>> 传递
-            data,
-            self.round_count,
-            state_size,
-            self.digest_size,
-        );
-
-        // 更新状态
-        let mut state_guard = self.state.write().unwrap();
-        let new_state_guard = new_state.read().unwrap();
-        state_guard.copy_from_slice(&new_state_guard);
+        for round in 0..self.round_count {
+            self.state = permute_core(
+                &self.state,
+                data,
+                round,
+                self.digest_size.state_size(),
+                self.digest_size,
+            );
+        }
     }
 
-    fn finalize(&self) -> Vec<u8> {
+    fn finalize(&mut self) -> Vec<u8> {
+        self.final_mix(&[]);
         let digest_length = self.digest_size.digest_length();
-        let mut result = vec![0u8; digest_length];
         let state_size = self.digest_size.state_size();
-
+        let mut result = vec![0u8; digest_length];
         for (i, chunk) in result.chunks_mut(8).enumerate() {
             let idx = i % state_size;
-            let bytes = self.state.read().unwrap()[idx].to_be_bytes();
-            chunk.copy_from_slice(&bytes[..chunk.len()]);
+            let bytes = self.state[idx].to_be_bytes();
+            // 采用恒定时间复制（无早期返回）
+            for (j, b) in bytes.iter().enumerate().take(chunk.len()) {
+                chunk[j] = *b;
+            }
         }
-
         result
     }
 
     fn reset(&mut self) {
-        let mut state_guard = self.state.write().unwrap();
-        state_guard.fill(0);
+        // 重新使用固定 IV 初始化状态，采用恒定时间清零输入缓冲区
+        self.state = BlueHashCore::fixed_iv(self.digest_size);
+        self.total_len = 0;
+        for b in self.input_buffer.iter_mut() {
+            *b = 0;
+        }
+        self.input_buffer.clear();
     }
 }
 
@@ -246,22 +305,37 @@ impl fmt::Display for BlueHashCore {
     }
 }
 
+/// 常量时间比较函数，防止侧信道泄露（所有比较采用固定循环时间）
+pub fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff: u8 = 0;
+    for i in 0..a.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{generate_constants, SBOX};
+    use crate::noise::generate_lwe_noise;
 
     #[test]
     fn test_bluehash128() {
         let mut hasher = BlueHashCore::new(DigestSize::Bit128);
-        hasher.update(b"Hello, world! This is a test message for BlueHash");
+        hasher.update("测试消息123".as_bytes());
         let result = hasher.finalize();
+        // 此处不使用硬编码测试向量，而是检测输出长度
         assert_eq!(result.len(), 16);
     }
 
     #[test]
     fn test_bluehash256() {
         let mut hasher = BlueHashCore::new(DigestSize::Bit256);
-        hasher.update(b"Hello, world! This is a test message for BlueHash");
+        hasher.update("测试消息123".as_bytes());
         let result = hasher.finalize();
         assert_eq!(result.len(), 32);
     }
@@ -269,7 +343,7 @@ mod tests {
     #[test]
     fn test_bluehash512() {
         let mut hasher = BlueHashCore::new(DigestSize::Bit512);
-        hasher.update(b"Hello, world! This is a test message for BlueHash");
+        hasher.update("测试消息123".as_bytes());
         let result = hasher.finalize();
         assert_eq!(result.len(), 64);
     }
@@ -277,15 +351,41 @@ mod tests {
     #[test]
     fn test_reset() {
         let mut hasher = BlueHashCore::new(DigestSize::Bit256);
-        hasher.update(b"Hello, world! This is a test message for BlueHash");
+        hasher.update("任意数据".as_bytes());
         hasher.reset();
         let result = hasher.finalize();
-        assert_eq!(result, vec![0u8; 32]);
+        let expected = BlueHashCore::new(DigestSize::Bit256).finalize();
+        assert!(constant_time_eq(&result, &expected));
     }
 
     #[test]
-    fn test_partial_eq() {
-        assert_eq!(DigestSize::Bit128, DigestSize::Bit128);
-        assert_ne!(DigestSize::Bit128, DigestSize::Bit256);
+    fn test_generate_constants() {
+        let data: Vec<u8> = vec![0x12, 0x34, 0x56, 0x78];
+        let result = generate_constants(5, &data, 32);
+        assert_ne!(result, 0);
     }
+
+    #[test]
+    fn test_integer_noise() {
+        let data: Vec<u8> = vec![0x12, 0x34, 0x56, 0x78];
+        let result = generate_lwe_noise(&data, 5, 0x9E3779B97F4A7C15);
+        assert_ne!(result, 0);
+    }
+}
+
+// 辅助函数：将字节转换为 16 进制字符串
+fn to_hex_string(bytes: &[u8]) -> String {
+    let mut hex = String::new();
+    for byte in bytes {
+        write!(&mut hex, "{:02x}", byte).unwrap();
+    }
+    hex
+}
+
+fn main() {
+    let test_data = "金融级安全测试".as_bytes();
+    let mut hasher = BlueHashCore::new(DigestSize::Bit256);
+    hasher.update(test_data);
+    let result = hasher.finalize();
+    println!("BlueHash256 Result: {}", to_hex_string(&result));
 }

@@ -2,7 +2,7 @@
 name = "BlueHash"
 description = "A highly secure alternative to existing custom digest algorithms."
 authors = ["blueokanna@gmail.com"]
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 license = "Apache-2.0"
 readme = "README.md"
@@ -11,9 +11,9 @@ keywords = ["Digest", "Algorithms", "Hash", "Crypto"]
 
 [dependencies]
 rand = "0.8.5"
-num_cpus = "1.16.0"
 criterion = { version = "0.5.1", features = ["plotters"] }
 rayon = "1.10.0"
+rand_chacha = "0.3.1"
 
 [[bench]]
 name = "bluebench"
